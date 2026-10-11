@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>크툴루의 부름 · 조사자 생성기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+DW+Pica&family=Nanum+Myeongjo:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  color-scheme: light;
+  --bg: #e3e9e5;
+  --surface: #f1f4f0;
+  --ink: #14262a;
+  --muted: #566a68;
+  --line: #b5c4be;
+  --accent: #2c6b5e;
+  --on-accent: #f1f4f0;
+  --brass: #8a6a1f;
+  --good: #2d7a4b;
+  --bad: #a03c3c;
+  --die: #f8faf6;
+  --floor-a: #dbe3dd;
+  --floor-b: #c9d5cd;
+  --serif: 'Nanum Myeongjo', 'Noto Serif KR', 'Apple SD Gothic Neo', 'Malgun Gothic', serif;
+  --num: 'IM Fell DW Pica', 'Nanum Myeongjo', Georgia, serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0b1718; --surface: #122325; --ink: #d9e7e0; --muted: #8ba49d; --line: #28423f;
+    --accent: #6fc2a8; --on-accent: #0b1718; --brass: #d3af5c; --good: #82d39d; --bad: #de7774;
+    --die: #1d3639; --floor-a: #0e1e1f; --floor-b: #081213;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b1718; --surface: #122325; --ink: #d9e7e0; --muted: #8ba49d; --line: #28423f;
+  --accent: #6fc2a8; --on-accent: #0b1718; --brass: #d3af5c; --good: #82d39d; --bad: #de7774;
+  --die: #1d3639; --floor-a: #0e1e1f; --floor-b: #081213;
+}
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+*, *::before, *::after { box-sizing: inherit; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--serif); font-size: 17px; line-height: 1.7; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 28px 20px 56px; }
+
+header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 28px; }
+h1 { font-size: clamp(28px, 5vw, 44px); line-height: 1.2; font-weight: 800; margin: 0 0 6px; letter-spacing: -.01em; }
+header p { margin: 0; color: var(--muted); max-width: 46ch; }
+.theme-btn { flex: none; background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 14px; cursor: pointer; }
+.theme-btn:hover { color: var(--ink); border-color: var(--muted); }
+
+.grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 24px; align-items: start; }
+@media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 24px; }
+.panel h2 { font-size: 20px; margin: 0 0 18px; font-weight: 800; }
+
+/* ---------- 주사위 트레이 ---------- */
+.tray { position: relative; height: var(--th, 180px); overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+.tray canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+.tray-label { position: absolute; left: 12px; top: 8px; right: 90px; font-size: 13px; line-height: 1.5; color: var(--muted); z-index: 3; pointer-events: none; }
+.skip { position: absolute; right: 8px; top: 6px; z-index: 4; font: inherit; font-size: 13px; padding: 0 12px; border-radius: 999px; background: var(--surface); color: var(--ink); border: 1px solid var(--line); cursor: pointer; }
+.skip:hover { border-color: var(--muted); }
+.skip[hidden] { display: none; }
+
+.total { font-family: var(--num); font-size: 56px; line-height: 1.1; text-align: center; margin: 14px 0 0; min-height: 1.1em; }
+.total.land { animation: pop .5s cubic-bezier(.2, 1.6, .4, 1); }
+.total.crit, .total.good { color: var(--good); }
+.total.fumble { color: var(--bad); }
+@keyframes pop { 0% { transform: scale(1.3); } 100% { transform: scale(1); } }
+.detail { min-height: 3.4em; text-align: center; margin: 0 0 14px; color: var(--muted); font-size: 15px; }
+.detail .verdict { font-weight: 800; font-size: 17px; }
+.detail .verdict.crit, .detail .verdict.good { color: var(--good); }
+.detail .verdict.fumble { color: var(--bad); }
+.detail .verdict.fail { color: var(--ink); }
+
+.roll-form { display: flex; gap: 8px; }
+.roll-form input { flex: 1; min-width: 0; font: inherit; font-family: var(--num); font-size: 20px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+.btn { font: inherit; font-weight: 700; cursor: pointer; border-radius: 6px; padding: 8px 20px; background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent); transition: transform .12s, opacity .2s; }
+.btn:hover:not(:disabled) { transform: translateY(-1px); }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: .5; cursor: progress; }
+.btn.ghost { background: none; color: var(--ink); border-color: var(--line); }
+.btn.ghost:hover:not(:disabled) { border-color: var(--muted); }
+.quick { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
+.quick button { font-family: var(--num); font-size: 16px; cursor: pointer; padding: 2px 12px; border-radius: 999px; background: none; color: var(--muted); border: 1px solid var(--line); }
+.quick button:hover:not(:disabled) { color: var(--ink); border-color: var(--muted); }
+.quick button:disabled { opacity: .5; }
+
+.judge { margin: 14px 0 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 6px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; font-size: 14px; }
+.judge label { display: grid; gap: 2px; color: var(--muted); }
+.judge input, .judge select { font: inherit; font-size: 15px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); min-width: 0; }
+.judge .hint { grid-column: 1 / -1; margin: 0; font-size: 13px; color: var(--muted); line-height: 1.5; }
+.judge.off { opacity: .55; }
+.err { color: var(--bad); font-size: 14px; min-height: 1.5em; margin: 8px 0 0; }
+.history { list-style: none; margin: 14px 0 0; padding: 14px 0 0; border-top: 1px solid var(--line); font-size: 15px; color: var(--muted); }
+.history li { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; }
+.history .t { font-family: var(--num); font-size: 18px; color: var(--ink); }
+
+/* ---------- 시트 ---------- */
+.sheet-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.sheet-top h2 { margin: 0; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.status { margin: 14px 0; color: var(--muted); font-size: 15px; min-height: 1.6em; }
+.stats { display: grid; gap: 8px; }
+.stat { display: grid; grid-template-columns: 3.4em minmax(0, 1fr) 2.6em; align-items: center; gap: 12px; }
+.stat .name { font-weight: 700; }
+.track { height: 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.fill { height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width .08s linear, background-color .4s; }
+.fill[data-tier="high"] { background: var(--good); }
+.fill[data-tier="mid"] { background: var(--brass); }
+.fill[data-tier="low"] { background: var(--bad); }
+.stat .val { font-family: var(--num); font-size: 24px; line-height: 1; text-align: right; }
+.stat.active .name { color: var(--accent); }
+
+.derived { margin: 24px 0 0; padding: 20px 0 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px 18px; }
+.derived div { opacity: .35; transition: opacity .5s; }
+.derived div.show { opacity: 1; }
+.derived dt { color: var(--muted); font-size: 14px; }
+.derived dd { margin: 0; font-family: var(--num); font-size: 26px; line-height: 1.25; }
+.derived .wide { grid-column: 1 / -1; }
+.derived .wide dd { font-family: var(--serif); font-size: 15px; color: var(--muted); }
+.derived .wide dd.set { color: var(--ink); }
+.derived .wide dd .n { font-family: var(--num); font-size: 26px; color: var(--ink); }
+
+/* ---------- 컨셉 / 직업 공통 ---------- */
+.section { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
+.section[hidden] { display: none; }
+.section-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.section h3 { margin: 0; font-size: 20px; font-weight: 800; }
+.section .lead { color: var(--muted); font-size: 15px; margin: 8px 0 14px; }
+.c-item { padding: 16px 0; border-top: 1px solid var(--line); opacity: 0; transform: translateY(8px); transition: opacity .55s, transform .55s; }
+.c-item.in { opacity: 1; transform: none; }
+.c-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.c-name { margin: 0; font-size: 21px; font-weight: 800; }
+.c-fit { font-size: 14px; color: var(--muted); white-space: nowrap; }
+.c-fit .n { font-family: var(--num); font-size: 20px; color: var(--brass); }
+.c-item .track { height: 6px; margin: 6px 0 10px; }
+.c-desc { margin: 0 0 8px; }
+.c-line { margin: 0; font-size: 15px; color: var(--muted); }
+.c-line b { color: var(--ink); margin-right: 8px; }
+.c-hook { margin: 8px 0 10px; font-size: 15px; font-style: italic; color: var(--muted); }
+.link-btn { font: inherit; font-size: 14px; background: none; border: 1px solid var(--line); color: var(--ink); border-radius: 999px; padding: 2px 14px; cursor: pointer; }
+.link-btn:hover { border-color: var(--accent); color: var(--accent); }
+.note { font-size: 13px; color: var(--muted); margin: 8px 0 0; line-height: 1.6; }
+
+.job-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.job-chips button { font: inherit; font-size: 15px; padding: 3px 16px; border-radius: 999px; background: none; color: var(--ink); border: 1px solid var(--line); cursor: pointer; transition: border-color .15s, background-color .15s; }
+.job-chips button:hover { border-color: var(--muted); }
+.job-chips button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.job-detail { margin-top: 16px; padding: 18px 20px; border: 1px solid var(--accent); border-radius: 8px; background: var(--bg); animation: open .35s ease-out; }
+.job-detail[hidden], .job-done[hidden], .jobs-help[hidden], .job-chips[hidden] { display: none; }
+@keyframes open { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.jd-name { margin: 0; font-size: 24px; font-weight: 800; }
+.jd-en { font-size: 14px; font-weight: 400; color: var(--muted); margin-left: 8px; }
+.jd-desc { margin: 6px 0 14px; }
+.jd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 20px; margin: 0 0 12px; }
+.jd-grid dt { font-size: 14px; color: var(--muted); }
+.jd-grid dd { margin: 0; }
+.jd-grid .big { font-family: var(--num); font-size: 34px; line-height: 1.15; }
+.jd-grid .calc { font-size: 14px; color: var(--muted); }
+.jd-alt { margin: 0 0 12px; font-size: 14px; color: var(--muted); }
+.jd-alt .opts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.jd-alt button { font: inherit; font-size: 14px; padding: 2px 14px; border-radius: 999px; background: none; color: var(--ink); border: 1px solid var(--line); cursor: pointer; }
+.jd-alt button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+.jd-skills { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 6px; }
+.jd-skills span { font-size: 13px; padding: 0 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+.jd-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.job-done { padding: 14px 18px; border: 1px solid var(--good); border-radius: 8px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.job-done b { font-weight: 800; }
+
+.toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); background: var(--ink); color: var(--bg); padding: 8px 18px; border-radius: 999px; font-size: 14px; opacity: 0; pointer-events: none; transition: .3s; z-index: 10; }
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition-duration: .01s !important; } .total.land, .job-detail { animation: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>크툴루의 부름 · 조사자 생성기</h1>
+      <p>면 수에 맞는 주사위를 굴려 7판 규칙대로 능력치를 뽑고, 나온 수치에 어울리는 직업을 골라 직업 기능 점수까지 계산해 보세요.</p>
+    </div>
+    <button class="theme-btn" id="themeBtn" type="button">테마 바꾸기</button>
+  </header>
+
+  <main class="grid">
+    <!-- 주사위 -->
+    <section class="panel" aria-labelledby="diceTitle">
+      <h2 id="diceTitle">주사위</h2>
+      <div class="tray" id="trayDice" style="--th:196px" aria-hidden="true"></div>
+      <div class="total" id="total" aria-live="polite">?</div>
+      <div class="detail" id="detail">굴릴 주사위를 입력하세요.</div>
+
+      <form class="roll-form" id="rollForm" autocomplete="off">
+        <input id="expr" value="1d100" inputmode="text" aria-label="주사위 식 (예: 3d6, 1d20+2, 1d100)" spellcheck="false">
+        <button class="btn" id="rollBtn" type="submit">굴리기</button>
+      </form>
+      <div class="quick" id="quick">
+        <button type="button" data-e="1d100">1d100</button>
+        <button type="button" data-e="1d20">1d20</button>
+        <button type="button" data-e="1d12">1d12</button>
+        <button type="button" data-e="1d10">1d10</button>
+        <button type="button" data-e="1d8">1d8</button>
+        <button type="button" data-e="1d6">1d6</button>
+        <button type="button" data-e="1d4">1d4</button>
+        <button type="button" data-e="2d6">2d6</button>
+        <button type="button" data-e="3d6">3d6</button>
+      </div>
+      <div class="judge" id="judge">
+        <label>기능 수치
+          <input id="skill" type="number" min="1" max="200" inputmode="numeric" placeholder="비워 두면 판정 안 함">
+        </label>
+        <label>보너스·페널티
+          <select id="bp">
+            <option value="0">없음</option>
+            <option value="b1">보너스 1개</option>
+            <option value="b2">보너스 2개</option>
+            <option value="p1">페널티 1개</option>
+            <option value="p2">페널티 2개</option>
+          </select>
+        </label>
+        <p class="hint" id="judgeHint">1d100을 굴릴 때만 쓰여요. 100면체는 0~9가 적힌 10면체 2개(왼쪽이 십의 자리, 오른쪽이 일의 자리)로 읽고, 00과 0이 나오면 100입니다.</p>
+      </div>
+      <p class="err" id="err" role="alert"></p>
+      <ul class="history" id="history"><li>굴린 기록이 여기에 쌓입니다.</li></ul>
+    </section>
+
+    <!-- 시트 -->
+    <section class="panel" aria-labelledby="sheetTitle">
+      <div class="sheet-top">
+        <h2 id="sheetTitle">조사자 시트</h2>
+        <div class="actions">
+          <button class="btn ghost" id="copyBtn" type="button" disabled>복사</button>
+          <button class="btn" id="sheetBtn" type="button">시트지 만들기</button>
+        </div>
+      </div>
+
+      <div class="tray" id="traySheet" style="--th:156px" aria-hidden="true">
+        <div class="tray-label" id="sheetLabel">버튼을 누르면 이 위에서 능력치 주사위가 굴러갑니다.</div>
+        <button class="skip" id="skipBtn" type="button" hidden>건너뛰기</button>
+      </div>
+      <p class="status" id="status" aria-live="polite">능력치 9개를 차례로 굴립니다.</p>
+
+      <div class="stats" id="stats"></div>
+
+      <dl class="derived" id="derived">
+        <div data-d="mov"><dt>이동력</dt><dd>—</dd></div>
+        <div data-d="hp"><dt>체력</dt><dd>—</dd></div>
+        <div data-d="mp"><dt>마력</dt><dd>—</dd></div>
+        <div data-d="san"><dt>이성</dt><dd>—</dd></div>
+        <div data-d="build"><dt>체구</dt><dd>—</dd></div>
+        <div data-d="db"><dt>피해 보너스</dt><dd>—</dd></div>
+        <div data-d="hobby"><dt>관심 기능 점수</dt><dd>—</dd></div>
+        <div data-d="job" class="wide"><dt>직업 기능 점수</dt><dd id="jobDd">아래 '직업 선택'에서 직업을 확정하면 계산해 드려요.</dd></div>
+      </dl>
+
+      <section class="section" id="concept" hidden aria-labelledby="conceptTitle">
+        <div class="section-head">
+          <h3 id="conceptTitle">어울리는 조사자 컨셉</h3>
+          <button class="btn ghost" id="moreBtn" type="button">다른 컨셉 보기</button>
+        </div>
+        <p class="lead" id="conceptSummary"></p>
+        <div id="conceptList"></div>
+      </section>
+
+      <section class="section" id="jobs" hidden aria-labelledby="jobsTitle">
+        <div class="section-head"><h3 id="jobsTitle">직업 선택</h3></div>
+        <p class="lead jobs-help" id="jobsHelp">수호자 룰북 7판의 예시 직업 28가지입니다. 이름을 눌러 자세한 내용을 확인한 뒤, 마음에 들면 확정하세요.</p>
+        <div class="job-chips" id="jobChips"></div>
+        <div class="job-detail" id="jobDetail" hidden></div>
+        <div class="job-done" id="jobDone" hidden></div>
+        <p class="note">직업 기능과 공식은 7판 수호자 룰북의 예시 직업을 정리한 것입니다. 한국어판 표기나 세부 내용은 조금 다를 수 있으니 룰북으로 한 번 더 확인하세요. 대인 기능은 매력·말재주·위협·설득 중에서, 자유 기능은 직업이나 개인 특기에 맞춰 고릅니다.</p>
+      </section>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast" role="status">복사했습니다</div>
+
+<script>
+(function () {
+  'use strict';
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+  var rnd = function (a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; };
+  var $ = function (id) { return document.getElementById(id); };
+  var busy = false;
+  var FONT = "'IM Fell DW Pica','Nanum Myeongjo',Georgia,serif";
+  var SERIF = "'Nanum Myeongjo','Noto Serif KR','Malgun Gothic',serif";
+
+  /* =====================================================
+     벡터 / 행렬 (3×3, 행 우선)
+  ===================================================== */
+  function vadd(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+  function vsub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+  function vmul(a, s) { return [a[0] * s, a[1] * s, a[2] * s]; }
+  function vdot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+  function vcross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+  function vlen(a) { return Math.sqrt(vdot(a, a)); }
+  function vnorm(a) { var l = vlen(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; }
+  function mapply(M, v) {
+    return [M[0] * v[0] + M[1] * v[1] + M[2] * v[2], M[3] * v[0] + M[4] * v[1] + M[5] * v[2], M[6] * v[0] + M[7] * v[1] + M[8] * v[2]];
+  }
+  function mmul(A, B) {
+    var R = [];
+    for (var i = 0; i < 3; i++) for (var j = 0; j < 3; j++)
+      R.push(A[i * 3] * B[j] + A[i * 3 + 1] * B[3 + j] + A[i * 3 + 2] * B[6 + j]);
+    return R;
+  }
+  function mcols(c0, c1, c2) { return [c0[0], c1[0], c2[0], c0[1], c1[1], c2[1], c0[2], c1[2], c2[2]]; }
+  function mtrans(M) { return [M[0], M[3], M[6], M[1], M[4], M[7], M[2], M[5], M[8]]; }
+  function mAxis(axis, ang) {
+    var a = vnorm(axis), x = a[0], y = a[1], z = a[2], c = Math.cos(ang), s = Math.sin(ang), t = 1 - c;
+    return [t * x * x + c, t * x * y - s * z, t * x * z + s * y,
+            t * x * y + s * z, t * y * y + c, t * y * z - s * x,
+            t * x * z - s * y, t * y * z + s * x, t * z * z + c];
+  }
+  function mAlign(from, to) {
+    var ax = vcross(from, to), s = vlen(ax), c = vdot(from, to);
+    if (s < 1e-9) {
+      if (c > 0) return [1, 0, 0, 0, 1, 0, 0, 0, 1];
+      var p = vcross(from, [1, 0, 0]);
+      if (vlen(p) < 1e-6) p = vcross(from, [0, 1, 0]);
+      return mAxis(p, Math.PI);
+    }
+    return mAxis(ax, Math.atan2(s, c));
+  }
+  var IDENT = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+
+  /* =====================================================
+     다면체 생성
+  ===================================================== */
+  var PHI = (1 + Math.sqrt(5)) / 2;
+  function axisPts() { return [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]; }
+  function tetraPts() { var s = 1 / Math.sqrt(3); return [[s, s, s], [s, -s, -s], [-s, s, -s], [-s, -s, s]]; }
+  function icosaPts() {
+    var a = [];
+    for (var s1 = -1; s1 <= 1; s1 += 2) for (var s2 = -1; s2 <= 1; s2 += 2) {
+      a.push(vnorm([0, s1, s2 * PHI]), vnorm([s1, s2 * PHI, 0]), vnorm([s1 * PHI, 0, s2]));
+    }
+    return a;
+  }
+  function fibPoints(n) {
+    var out = [], ga = Math.PI * (3 - Math.sqrt(5));
+    for (var i = 0; i < n; i++) {
+      var y = 1 - 2 * (i + .5) / n, r = Math.sqrt(1 - y * y), th = ga * i;
+      out.push([Math.cos(th) * r, y, Math.sin(th) * r]);
+    }
+    return out;
+  }
+
+  /* 구 위의 점들로 만든 볼록껍질의 삼각형 면 (전수 검사) */
+  function hullTris(P) {
+    var n = P.length, out = [], eps = 1e-7;
+    for (var i = 0; i < n; i++) {
+      var a = P[i];
+      for (var j = i + 1; j < n; j++) {
+        var b = P[j], abx = b[0] - a[0], aby = b[1] - a[1], abz = b[2] - a[2];
+        for (var k = j + 1; k < n; k++) {
+          var c = P[k], acx = c[0] - a[0], acy = c[1] - a[1], acz = c[2] - a[2];
+          var mx = aby * acz - abz * acy, my = abz * acx - abx * acz, mz = abx * acy - aby * acx;
+          var len = Math.sqrt(mx * mx + my * my + mz * mz);
+          if (len < 1e-9) continue;
+          mx /= len; my /= len; mz /= len;
+          var d = mx * a[0] + my * a[1] + mz * a[2];
+          if (d < 0) { mx = -mx; my = -my; mz = -mz; d = -d; }
+          if (d < 1e-6) continue;
+          var ok = true;
+          for (var p = 0; p < n; p++) {
+            if (p === i || p === j || p === k) continue;
+            var q = P[p];
+            if (mx * q[0] + my * q[1] + mz * q[2] - d > eps) { ok = false; break; }
+          }
+          if (ok) out.push({ i: i, j: j, k: k, m: [mx, my, mz], d: d });
+        }
+      }
+    }
+    return out;
+  }
+  function polyFromHull(P) {
+    return hullTris(P).map(function (t) { return { pts: [P[t.i], P[t.j], P[t.k]], ids: [t.i, t.j, t.k] }; });
+  }
+  /* 쌍대 다면체: 점 하나가 면 하나가 된다 */
+  function dualPolys(P) {
+    var tris = hullTris(P), per = P.map(function () { return []; });
+    tris.forEach(function (t) {
+      var v = vmul(t.m, 1 / t.d);
+      per[t.i].push(v); per[t.j].push(v); per[t.k].push(v);
+    });
+    return per.map(function (list, idx) {
+      var u = [];
+      list.forEach(function (v) {
+        if (!u.some(function (w) { return vlen(vsub(w, v)) < 1e-6; })) u.push(v);
+      });
+      var ax = vnorm(P[idx]);
+      var e1 = Math.abs(ax[1]) < .9 ? [0, 1, 0] : [1, 0, 0];
+      e1 = vnorm(vsub(e1, vmul(ax, vdot(e1, ax))));
+      var e2 = vcross(ax, e1);
+      u.sort(function (a, b) { return Math.atan2(vdot(a, e2), vdot(a, e1)) - Math.atan2(vdot(b, e2), vdot(b, e1)); });
+      return { pts: u };
+    });
+  }
+  /* 오각 트라페조헤드론 (10면체) */
+  function d10Polys() {
+    var c = Math.cos(Math.PI / 5), a = 0.105, h = a * (1 + c) / (1 - c);
+    var U = [], L = [], i;
+    for (i = 0; i < 5; i++) {
+      var t1 = 2 * Math.PI * i / 5, t2 = t1 + Math.PI / 5;
+      U.push([Math.cos(t1), a, Math.sin(t1)]);
+      L.push([Math.cos(t2), -a, Math.sin(t2)]);
+    }
+    var T = [0, h, 0], B = [0, -h, 0], polys = [];
+    for (i = 0; i < 5; i++) polys.push({ pts: [T, U[i], L[i], U[(i + 1) % 5]] });
+    for (i = 0; i < 5; i++) polys.push({ pts: [B, L[i], U[(i + 1) % 5], L[(i + 1) % 5]] });
+    return polys;
+  }
+  /* 동전 (2면체) */
+  function coinPolys() {
+    var N = 32, t = 0.1, top = [], bot = [], i;
+    for (i = 0; i < N; i++) {
+      var th = 2 * Math.PI * i / N;
+      top.push([Math.cos(th), t, Math.sin(th)]);
+      bot.push([Math.cos(th), -t, Math.sin(th)]);
+    }
+    var polys = [{ pts: top }, { pts: bot }];
+    for (i = 0; i < N; i++) {
+      var j = (i + 1) % N;
+      polys.push({ pts: [top[i], bot[i], bot[j], top[j]], noStroke: true });
+    }
+    return polys;
+  }
+
+  /* 면 정보 계산 */
+  function finalize(polys, opt) {
+    opt = opt || {};
+    var maxR = 0;
+    polys.forEach(function (p) { p.pts.forEach(function (v) { maxR = Math.max(maxR, vlen(v)); }); });
+    var s = 1 / maxR, verts = [];
+    function vid(v) {
+      for (var i = 0; i < verts.length; i++) if (vlen(vsub(verts[i], v)) < 1e-6) return i;
+      verts.push(v); return verts.length - 1;
+    }
+    var faces = polys.map(function (p) {
+      var pts = p.pts.map(function (v) { return vmul(v, s); });
+      var k = pts.length, c = [0, 0, 0], i;
+      pts.forEach(function (v) { c = vadd(c, v); });
+      c = vmul(c, 1 / k);
+      var ref = opt.upMode === 'edge' ? vmul(vadd(pts[0], pts[1]), .5) : pts[0];
+      var nx = 0, ny = 0, nz = 0;
+      for (i = 0; i < k; i++) {
+        var a = pts[i], b = pts[(i + 1) % k];
+        nx += (a[1] - b[1]) * (a[2] + b[2]);
+        ny += (a[2] - b[2]) * (a[0] + b[0]);
+        nz += (a[0] - b[0]) * (a[1] + b[1]);
+      }
+      var n = vnorm([nx, ny, nz]);
+      var ids = p.ids ? p.ids.slice() : null;
+      if (vdot(n, c) < 0) { n = vmul(n, -1); pts.reverse(); if (ids) ids.reverse(); }
+      var up = vsub(ref, c);
+      up = vsub(up, vmul(n, vdot(up, n)));
+      if (vlen(up) < 1e-6) { up = vcross(n, [1, 0, 0]); if (vlen(up) < 1e-6) up = vcross(n, [0, 1, 0]); }
+      up = vnorm(up);
+      var r = vcross(up, n);
+      var pts2 = pts.map(function (v) { var d = vsub(v, c); return [vdot(d, r), vdot(d, up)]; });
+      var circR = 0, inR = 1e9;
+      pts2.forEach(function (q) { circR = Math.max(circR, Math.hypot(q[0], q[1])); });
+      for (i = 0; i < k; i++) {
+        var A = pts2[i], B = pts2[(i + 1) % k];
+        var len = Math.hypot(B[0] - A[0], B[1] - A[1]);
+        inR = Math.min(inR, Math.abs(A[0] * B[1] - A[1] * B[0]) / len);
+      }
+      return { pts: pts, vi: pts.map(vid), c: c, n: n, u: up, r: r, pts2: pts2, circR: circR, inR: inR,
+               ids: ids, label: null, vlabels: null, noStroke: !!p.noStroke };
+    });
+    return { faces: faces, verts: verts };
+  }
+
+  /* 마주 보는 면 쌍 */
+  function pairIdx(F) {
+    var partner = F.map(function () { return -1; }), pairs = [];
+    for (var i = 0; i < F.length; i++) for (var j = i + 1; j < F.length; j++) {
+      if (partner[i] < 0 && partner[j] < 0 && vdot(F[i].n, F[j].n) < -0.9995) {
+        partner[i] = j; partner[j] = i; pairs.push([i, j]);
+      }
+    }
+    return { partner: partner, pairs: pairs };
+  }
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) { var j = rnd(0, i), t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  /* 마주 보는 면의 합이 target이 되도록 숫자 배치 */
+  function assignLabels(F, vals, target) {
+    var pr = pairIdx(F), pairVals = [], used = {}, lab = F.map(function () { return null; });
+    vals.forEach(function (a) {
+      var b = target - a;
+      if (a < b && vals.indexOf(b) >= 0) pairVals.push([a, b]);
+    });
+    shuffle(pairVals);
+    pr.pairs.forEach(function (p, ix) {
+      if (ix < pairVals.length) {
+        lab[p[0]] = pairVals[ix][0]; lab[p[1]] = pairVals[ix][1];
+        used[pairVals[ix][0]] = 1; used[pairVals[ix][1]] = 1;
+      }
+    });
+    var rest = shuffle(vals.filter(function (a) { return !used[a]; }));
+    for (var i = 0; i < lab.length; i++) if (lab[i] === null) lab[i] = rest.pop();
+    return lab;
+  }
+
+  var DATA = {};
+  function sideKind(s) { return { 2: 'd2', 3: 'd3', 4: 'd4', 6: 'd6', 8: 'd8', 10: 'd10', 12: 'd12', 20: 'd20' }[s] || 'gen'; }
+  function getData(sides, pct) {
+    var kind = pct ? 'd10' : sideKind(sides), key = kind === 'gen' ? 'g' + sides : kind;
+    if (DATA[key]) return DATA[key];
+    var polys, opt = {};
+    switch (kind) {
+      case 'd2': polys = coinPolys(); break;
+      case 'd3': case 'd6': polys = dualPolys(axisPts()); opt.upMode = 'edge'; break;
+      case 'd4': polys = polyFromHull(tetraPts()); break;
+      case 'd8': polys = polyFromHull(axisPts()); break;
+      case 'd10': polys = d10Polys(); break;
+      case 'd12': polys = dualPolys(icosaPts()); break;
+      case 'd20': polys = polyFromHull(icosaPts()); break;
+      default: polys = dualPolys(fibPoints(sides));
+    }
+    var d = finalize(polys, opt);
+    d.kind = kind; d.sides = pct ? 10 : sides; d.byLabel = {};
+    var F = d.faces;
+    function setLabel(i, l) { F[i].label = String(l); (d.byLabel[l] = d.byLabel[l] || []).push(i); }
+    if (kind === 'd4') {
+      d.tetra = tetraPts();
+      F.forEach(function (f) { f.vlabels = f.ids.map(function (i) { return i + 1; }); });
+    } else if (kind === 'd2') {
+      setLabel(0, 1); setLabel(1, 2);
+    } else if (kind === 'd3') {
+      pairIdx(F).pairs.forEach(function (p, ix) { setLabel(p[0], ix % 3 + 1); setLabel(p[1], ix % 3 + 1); });
+    } else {
+      var vals = [], target, i;
+      if (kind === 'd10') { for (i = 0; i <= 9; i++) vals.push(i); target = 9; }
+      else { for (i = 1; i <= sides; i++) vals.push(i); target = sides + 1; }
+      assignLabels(F, vals, target).forEach(function (l, ix) { setLabel(ix, l); });
+    }
+    DATA[key] = d;
+    return d;
+  }
+
+  function targetFor(d, spec) {
+    if (d.kind === 'd4') {
+      var id = (spec.value == null ? rnd(1, 4) : spec.value) - 1;
+      return { vertex: vnorm(d.tetra[id]) };
+    }
+    var lab = null, idxs;
+    if (spec.value != null) lab = d.kind === 'd10' ? (spec.pct ? spec.value : spec.value % 10) : spec.value;
+    if (lab == null) {
+      idxs = [];
+      d.faces.forEach(function (f, i) { if (f.label != null) idxs.push(i); });
+    } else idxs = d.byLabel[lab];
+    return { face: d.faces[idxs[rnd(0, idxs.length - 1)]] };
+  }
+  /* 결과 면이 위(+Y)를 향하고, 글자의 윗방향이 안쪽(-Z)을 향하는 회전 */
+  function finalRot(t) {
+    var R;
+    if (t.vertex) {
+      R = mmul(mAxis([0, 1, 0], Math.random() * Math.PI * 2), mAlign(t.vertex, [0, 1, 0]));
+    } else {
+      var f = t.face;
+      var A = mcols(f.r, f.u, f.n), B = mcols([1, 0, 0], [0, 0, -1], [0, 1, 0]);
+      R = mmul(mAxis([0, 1, 0], (Math.random() - .5) * .5), mmul(B, mtrans(A)));
+    }
+    return R;
+  }
+  function minYof(d, R) {
+    var m = 1e9;
+    for (var i = 0; i < d.verts.length; i++) {
+      var v = d.verts[i], y = R[3] * v[0] + R[4] * v[1] + R[5] * v[2];
+      if (y < m) m = y;
+    }
+    return m;
+  }
+
+  /* =====================================================
+     테마 색상
+  ===================================================== */
+  function themeColors() {
+    var cs = getComputedStyle(document.documentElement);
+    function g(n, d) { var v = cs.getPropertyValue(n).trim(); return v || d; }
+    return { die: g('--die', '#f8faf6'), ink: g('--ink', '#14262a'), brass: g('--brass', '#8a6a1f'),
+      good: g('--good', '#2d7a4b'), bad: g('--bad', '#a03c3c'), line: g('--line', '#b5c4be'),
+      floorA: g('--floor-a', '#dbe3dd'), floorB: g('--floor-b', '#c9d5cd'), muted: g('--muted', '#566a68') };
+  }
+  function parseRGB(s) {
+    var m = /^#([0-9a-f]{6})$/i.exec(s.trim());
+    if (m) return [parseInt(m[1].slice(0, 2), 16), parseInt(m[1].slice(2, 4), 16), parseInt(m[1].slice(4, 6), 16)];
+    m = /^#([0-9a-f]{3})$/i.exec(s.trim());
+    if (m) return [parseInt(m[1][0] + m[1][0], 16), parseInt(m[1][1] + m[1][1], 16), parseInt(m[1][2] + m[1][2], 16)];
+    return [240, 240, 240];
+  }
+
+  /* =====================================================
+     트레이 (캔버스 2D, 비스듬히 내려다보는 시점)
+  ===================================================== */
+  var E = 50 * Math.PI / 180, sinE = Math.sin(E), cosE = Math.cos(E);
+  var LIGHT = vnorm([-0.35, 0.85, 0.45]);
+  var BOUNCE_T = [.30, .54, .70, .82], BOUNCE_A = [1.3, .55, .2];
+
+  function Tray(el, basePpu) {
+    var cvs = document.createElement('canvas');
+    el.insertBefore(cvs, el.firstChild);
+    var ctx = cvs.getContext('2d');
+    var W = 0, H = 0, dpr = 1, ppu = basePpu, viewH = 1, tz = 0, H0 = 2;
+    var dice = [], raf = 0, anim = null, finishing = false, col = themeColors(), dieRGB = parseRGB(col.die);
+
+    function px(p) { return W / 2 + p[0] * ppu; }
+    function py(p) { return H / 2 - ((p[1] - 1) * cosE - (p[2] - tz) * sinE) * ppu; }
+    function pv(v) { return [v[0] * ppu, -(v[1] * cosE - v[2] * sinE) * ppu]; }
+
+    function layout() {
+      if (!W || !H) return;
+      var m = Math.max(dice.length, 1);
+      ppu = Math.min(basePpu, W / ((m - 1) * 2.2 + 2.6));
+      viewH = H / ppu;
+      tz = -0.12 * viewH / sinE;
+      var cap = (0.62 * viewH - 0.35) / cosE - 0.3;
+      H0 = Math.max(1.2, Math.min(2.4, cap));
+      var gap = m > 1 ? Math.min(2.5, (W / ppu - 2.6) / (m - 1)) : 0;
+      var zs = [0.05, -0.12, 0.12, -0.05];
+      dice.forEach(function (d, i) {
+        d.rest.x = (i - (m - 1) / 2) * gap;
+        d.rest.z = zs[i % 4];
+        d.X0 = -(W / ppu / 2 + 2.6);
+      });
+    }
+    function resize() {
+      W = el.clientWidth; H = el.clientHeight;
+      if (!W || !H) return;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      cvs.width = Math.round(W * dpr); cvs.height = Math.round(H * dpr);
+      layout();
+      if (!anim) dice.forEach(function (d) { if (d.landed) setFinal(d); });
+      draw();
+    }
+    if (window.ResizeObserver) new ResizeObserver(resize).observe(el);
+    else window.addEventListener('resize', resize);
+
+    function build(specs) {
+      dice = specs.map(function (spec, i) {
+        var data = getData(spec.sides, spec.pct), R = finalRot(targetFor(data, spec));
+        return { spec: spec, data: data, Rf: R, R: R, rest: { x: 0, y: -minYof(data, R), z: 0 }, pos: [0, 0, 0],
+                 X0: 0, delay: i * 90, axis: [(Math.random() - .5) * .7, (Math.random() - .5) * .7, -1],
+                 S: (5 + Math.random() * 2.5) * Math.PI, groundH: 0, mark: null, landed: false, caption: spec.caption || null };
+      });
+      layout();
+    }
+    function setFinal(d) {
+      d.R = d.Rf; d.pos = [d.rest.x, d.rest.y, d.rest.z]; d.groundH = 0; d.landed = true;
+    }
+    function groundH(t) {
+      var k = H0 / 2.4;
+      if (t < BOUNCE_T[0]) { var s0 = t / BOUNCE_T[0]; return H0 * (1 - s0 * s0); }
+      for (var i = 0; i < 3; i++) {
+        if (t < BOUNCE_T[i + 1]) { var s = (t - BOUNCE_T[i]) / (BOUNCE_T[i + 1] - BOUNCE_T[i]); return BOUNCE_A[i] * k * 4 * s * (1 - s); }
+      }
+      return 0;
+    }
+    function setAt(d, t) {
+      var ex = 1 - Math.pow(1 - t, 3);
+      var x = d.X0 + (d.rest.x - d.X0) * ex;
+      var gh = groundH(t);
+      var e = 1 - Math.pow(1 - t, 2.4);
+      var R = mmul(mAxis(d.axis, d.S * (1 - e)), d.Rf);
+      d.R = R; d.groundH = gh; d.landed = false;
+      d.pos = [x, gh - minYof(d.data, R), d.rest.z];
+    }
+
+    /* ---------- 그리기 ---------- */
+    function drawFloor() {
+      var yb = py([0, 0, -2.2]);
+      var g = ctx.createLinearGradient(0, yb, 0, H);
+      g.addColorStop(0, col.floorA); g.addColorStop(1, col.floorB);
+      ctx.fillStyle = g; ctx.fillRect(0, yb, W, H - yb);
+      ctx.strokeStyle = col.line; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, yb + .5); ctx.lineTo(W, yb + .5); ctx.stroke();
+    }
+    function drawShadow(d) {
+      var h = d.groundH, sc = 1 + h * .18, a = .5 / (1 + h * 1.4);
+      var sx = px([d.pos[0], 0, d.pos[2]]), sy = py([d.pos[0], 0, d.pos[2]]);
+      var rad = ppu * 1.1 * sc;
+      ctx.save();
+      ctx.translate(sx, sy); ctx.scale(1, sinE);
+      var g = ctx.createRadialGradient(0, 0, 0, 0, 0, rad);
+      g.addColorStop(0, 'rgba(0,0,0,' + a.toFixed(3) + ')'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rad, 0, 6.2832); ctx.fill();
+      ctx.restore();
+    }
+    function shade(b) {
+      return 'rgb(' + Math.min(255, Math.round(dieRGB[0] * b)) + ',' + Math.min(255, Math.round(dieRGB[1] * b)) + ',' + Math.min(255, Math.round(dieRGB[2] * b)) + ')';
+    }
+    function drawDie(d) {
+      var R = d.R, data = d.data, wx = [], wy = [];
+      var vis = [];
+      for (var i = 0; i < data.verts.length; i++) {
+        var w = mapply(R, data.verts[i]);
+        w = [w[0] + d.pos[0], w[1] + d.pos[1], w[2] + d.pos[2]];
+        wx.push(px(w)); wy.push(py(w));
+      }
+      var cx = d.pos[0], cy = d.pos[1], cz = d.pos[2];
+      data.faces.forEach(function (f) {
+        var nw = mapply(R, f.n);
+        if (nw[1] * sinE + nw[2] * cosE <= 0.02) return;
+        vis.push({ f: f, nw: nw, b: 0.68 + 0.42 * Math.max(0, vdot(nw, LIGHT)) });
+      });
+      function path(f) {
+        ctx.beginPath();
+        f.vi.forEach(function (id, k) { if (k) ctx.lineTo(wx[id], wy[id]); else ctx.moveTo(wx[id], wy[id]); });
+        ctx.closePath();
+      }
+      if (d.mark) {
+        ctx.save();
+        ctx.shadowColor = d.mark === 'crit' ? col.good : col.bad; ctx.shadowBlur = 16;
+        vis.forEach(function (o) { path(o.f); ctx.fillStyle = shade(o.b); ctx.fill(); });
+        ctx.restore();
+      }
+      ctx.lineJoin = 'round';
+      vis.forEach(function (o) {
+        var f = o.f;
+        path(f);
+        ctx.fillStyle = shade(o.b); ctx.fill();
+        if (f.noStroke) { ctx.lineWidth = 1; ctx.strokeStyle = shade(o.b); }
+        else { ctx.lineWidth = 1.3; ctx.strokeStyle = col.brass; }
+        ctx.stroke();
+        drawLabels(d, f, o.nw);
+      });
+    }
+    function drawLabels(d, f, nw) {
+      if (f.label == null && !f.vlabels) return;
+      var R = d.R, cw = mapply(R, f.c);
+      cw = [cw[0] + d.pos[0], cw[1] + d.pos[1], cw[2] + d.pos[2]];
+      var pr = pv(mapply(R, f.r)), pu = pv(mapply(R, f.u));
+      var ex = px(cw), ey = py(cw);
+      var color = d.mark && d.landed && f === d.topFace ? (d.mark === 'crit' ? col.good : col.bad) : col.ink;
+      ctx.save();
+      ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (f.label != null) {
+        var text = f.label;
+        var fw = f.inR * (text.length > 1 ? 1.2 : 1.5);
+        if (d.data.kind === 'd2') fw = 0.7;
+        if (text === '6' || text === '9') text += '.';
+        var s = fw / 100;
+        ctx.setTransform(dpr * pr[0] * s, dpr * pr[1] * s, -dpr * pu[0] * s, -dpr * pu[1] * s, dpr * ex, dpr * ey);
+        ctx.font = '100px ' + FONT;
+        ctx.fillText(text, 0, 6);
+      } else {
+        var fs = f.circR * 0.36 / 100;
+        f.pts2.forEach(function (q, k) {
+          ctx.setTransform(dpr * pr[0], dpr * pr[1], -dpr * pu[0], -dpr * pu[1], dpr * ex, dpr * ey);
+          ctx.translate(q[0] * 0.56, -q[1] * 0.56);
+          ctx.rotate(Math.atan2(q[0], q[1]));
+          ctx.scale(fs, fs);
+          ctx.font = '100px ' + FONT;
+          ctx.fillText(String(f.vlabels[k]), 0, 6);
+        });
+      }
+      ctx.restore();
+    }
+    function drawCaptions() {
+      ctx.save();
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = col.muted; ctx.font = '13px ' + SERIF; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      dice.forEach(function (d) {
+        if (d.caption && d.landed) ctx.fillText(d.caption, px([d.rest.x, 0, d.rest.z]), py([d.rest.x, 0, d.rest.z + 0.95]));
+      });
+      ctx.restore();
+    }
+    function draw() {
+      if (!W || !H) return;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      drawFloor();
+      dice.forEach(drawShadow);
+      dice.slice().sort(function (a, b) { return a.pos[2] - b.pos[2] || a.pos[1] - b.pos[1]; }).forEach(function (d) {
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        drawDie(d);
+      });
+      drawCaptions();
+    }
+
+    /* ---------- API ---------- */
+    function markTop(d) {
+      var best = null, by = -2;
+      d.data.faces.forEach(function (f) {
+        if (f.label == null) return;
+        var y = mapply(d.Rf, f.n)[1];
+        if (y > by) { by = y; best = f; }
+      });
+      d.topFace = best;
+    }
+    this.place = function (specs) {
+      cancelAnimationFrame(raf); anim = null;
+      build(specs);
+      dice.forEach(function (d) { setFinal(d); markTop(d); });
+      draw();
+    };
+    this.roll = function (specs, opt) {
+      opt = opt || {};
+      cancelAnimationFrame(raf);
+      build(specs);
+      dice.forEach(markTop);
+      if (reduced || opt.instant) {
+        dice.forEach(setFinal); draw();
+        return Promise.resolve();
+      }
+      finishing = false;
+      dice.forEach(function (d) { setAt(d, 0); });
+      return new Promise(function (res) {
+        anim = { t0: performance.now(), dur: opt.duration || 1200, res: res };
+        raf = requestAnimationFrame(frame);
+      });
+    };
+    function frame(now) {
+      if (!anim) return;
+      var el = now - anim.t0, all = true;
+      dice.forEach(function (d) {
+        var t = finishing ? 1 : (el - d.delay) / anim.dur;
+        if (t >= 1) { if (!d.landed) setFinal(d); }
+        else { all = false; setAt(d, Math.max(0, t)); }
+      });
+      draw();
+      if (all) { var r = anim.res; anim = null; r(); }
+      else raf = requestAnimationFrame(frame);
+    }
+    this.mark = function (kind) { dice.forEach(function (d) { d.mark = kind; }); draw(); };
+    this.finish = function () { finishing = true; };
+    this.refresh = function () { col = themeColors(); dieRGB = parseRGB(col.die); draw(); };
+    this.redraw = draw;
+    resize();
+  }
+
+  var diceTray = new Tray($('trayDice'), 48);
+  var sheetTray = new Tray($('traySheet'), 40);
+  diceTray.place([{ sides: 10, pct: true, value: rnd(0, 9), caption: '십의 자리' }, { sides: 10, pct: true, value: rnd(0, 9), caption: '일의 자리' }]);
+  sheetTray.place([{ sides: 6 }, { sides: 6 }, { sides: 6 }]);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { diceTray.redraw(); sheetTray.redraw(); });
+
+  /* ---------- 테마 ---------- */
+  var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  $('themeBtn').addEventListener('click', function () {
+    dark = !dark;
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    diceTray.refresh(); sheetTray.refresh();
+  });
+
+  /* =====================================================
+     잠금
+  ===================================================== */
+  var rollBtn = $('rollBtn'), sheetBtn = $('sheetBtn'), copyBtn = $('copyBtn'), moreBtn = $('moreBtn');
+  var state = null;
+  function lock(b) {
+    busy = b;
+    rollBtn.disabled = b; sheetBtn.disabled = b; moreBtn.disabled = b;
+    copyBtn.disabled = b || !state;
+    document.querySelectorAll('#quick button').forEach(function (x) { x.disabled = b; });
+  }
+
+  /* =====================================================
+     주사위 패널
+  ===================================================== */
+  var totalEl = $('total'), detail = $('detail'), err = $('err'), exprInput = $('expr');
+  var skillInput = $('skill'), bpSel = $('bp'), judgeEl = $('judge');
+  var history = [];
+
+  function parseExpr(raw) {
+    var s = raw.replace(/\s/g, '').toLowerCase();
+    var m = s.match(/^(\d*)d(\d+)([+-]\d+)?$/);
+    if (!m) return null;
+    return { s: s, n: m[1] === '' ? 1 : +m[1], sides: +m[2], mod: m[3] ? +m[3] : 0 };
+  }
+  function syncJudge() {
+    var p = parseExpr(exprInput.value);
+    var on = !!p && p.n === 1 && p.sides === 100 && !p.mod;
+    judgeEl.classList.toggle('off', !on);
+    skillInput.disabled = !on; bpSel.disabled = !on;
+  }
+  exprInput.addEventListener('input', syncJudge);
+  syncJudge();
+
+  function judgeRoll(v, skill) {
+    if (v === 1) return { t: '대성공', c: 'crit' };
+    if (v === 100 || (skill != null && skill < 50 && v >= 96)) return { t: '대실패', c: 'fumble' };
+    if (skill == null) return null;
+    if (v <= Math.floor(skill / 5)) return { t: '극단적 성공', c: 'good' };
+    if (v <= Math.floor(skill / 2)) return { t: '어려운 성공', c: 'good' };
+    if (v <= skill) return { t: '보통 성공', c: 'good' };
+    return { t: '실패', c: 'fail' };
+  }
+
+  function planRoll(p) {
+    var n = p.n, sides = p.sides, mod = p.mod, specs = [], results = [], info = {}, i;
+    if (sides === 100) {
+      var single = (n === 1 && !mod);
+      var bpv = single ? bpSel.value : '0';
+      var kind = bpv[0] === 'b' ? 'bonus' : bpv[0] === 'p' ? 'penalty' : null;
+      var extra = kind ? +bpv[1] : 0;
+      if (single) {
+        var tens = [], ones = rnd(0, 9);
+        for (i = 0; i <= extra; i++) tens.push(rnd(0, 9));
+        var vals = tens.map(function (t) { var v = t * 10 + ones; return v === 0 ? 100 : v; });
+        var chosen = vals[0];
+        if (kind === 'bonus') chosen = Math.min.apply(null, vals);
+        if (kind === 'penalty') chosen = Math.max.apply(null, vals);
+        results = [chosen];
+        tens.forEach(function (t, ix) {
+          specs.push({ sides: 10, pct: true, value: t, caption: ix === 0 ? '십의 자리' : (kind === 'bonus' ? '보너스' : '페널티') });
+        });
+        specs.push({ sides: 10, pct: true, value: ones, caption: '일의 자리' });
+        info = { pct: true, single: true, tens: tens, ones: ones, vals: vals, kind: kind, chosen: chosen };
+      } else {
+        for (i = 0; i < n; i++) {
+          var t2 = rnd(0, 9), o2 = rnd(0, 9), v2 = t2 * 10 + o2;
+          results.push(v2 === 0 ? 100 : v2);
+          if (i < 2) {
+            specs.push({ sides: 10, pct: true, value: t2, caption: '십의 자리' });
+            specs.push({ sides: 10, pct: true, value: o2, caption: '일의 자리' });
+          }
+        }
+        info = { pct: true, single: false, hidden: n > 2 ? n - 2 : 0 };
+      }
+    } else {
+      for (i = 0; i < n; i++) results.push(rnd(1, sides));
+      for (i = 0; i < Math.min(n, 4); i++) specs.push({ sides: sides, value: results[i] });
+      info = { hidden: n > 4 ? n - 4 : 0 };
+    }
+    var sum = results.reduce(function (a, b) { return a + b; }, 0);
+    return { specs: specs, results: results, sum: sum, total: sum + mod, info: info };
+  }
+
+  async function rollExpr(raw) {
+    if (busy) return;
+    var p = parseExpr(raw);
+    err.textContent = '';
+    if (!p) { err.textContent = '"3d6", "1d100", "1d20+2" 같은 형식으로 입력하세요.'; return; }
+    if (p.n < 1 || p.n > 100 || p.sides < 2 || p.sides > 100) {
+      err.textContent = '주사위는 1~100개, 면은 2~100개까지 지원합니다.'; return;
+    }
+    lock(true);
+    totalEl.className = 'total';
+    detail.textContent = '';
+
+    var plan = planRoll(p);
+    var skillRaw = parseInt(skillInput.value, 10);
+    var skill = (!skillInput.disabled && skillRaw > 0) ? skillRaw : null;
+
+    var done = false, t0 = performance.now();
+    var pr = diceTray.roll(plan.specs, { duration: 1200 }).then(function () { done = true; });
+    var hi = p.sides === 100 ? 100 : p.n * p.sides;
+    if (!reduced) {
+      while (!done) {
+        totalEl.textContent = rnd(p.sides === 100 ? 1 : p.n, hi) + p.mod;
+        await sleep(45 + Math.min(110, (performance.now() - t0) / 9));
+      }
+    }
+    await pr;
+
+    totalEl.textContent = plan.total;
+    void totalEl.offsetWidth;
+    totalEl.classList.add('land');
+
+    var lines = ['<div>' + p.s + '</div>'];
+    var verdict = '';
+    var info = plan.info;
+    if (info.pct && info.single) {
+      if (info.kind) {
+        lines.push('<div>십의 자리 ' + info.tens.join(', ') + ' · 일의 자리 ' + info.ones + '</div>');
+        lines.push('<div>' + info.vals.join(', ') + ' 중 ' + (info.kind === 'bonus' ? '보너스라서 낮은 값' : '페널티라서 높은 값') + ' ' + info.chosen + '을 씁니다.</div>');
+      } else {
+        lines.push('<div>십의 자리 ' + info.tens[0] + ', 일의 자리 ' + info.ones + ' → ' + info.chosen + '</div>');
+      }
+      if (info.vals.indexOf(100) >= 0) lines.push('<div>십의 자리 0과 일의 자리 0은 100으로 읽습니다.</div>');
+      var j = judgeRoll(plan.total, skill);
+      if (skill != null) lines.push('<div>기능 수치 ' + skill + ' (어려움 ' + Math.floor(skill / 2) + ' 이하, 극단 ' + Math.floor(skill / 5) + ' 이하)</div>');
+      if (j) {
+        verdict = '<div class="verdict ' + j.c + '">' + j.t + '</div>';
+        if (j.c === 'crit') { totalEl.classList.add('crit'); diceTray.mark('crit'); }
+        else if (j.c === 'fumble') { totalEl.classList.add('fumble'); diceTray.mark('fumble'); }
+        else if (j.c === 'good') totalEl.classList.add('good');
+      }
+    } else {
+      if (p.n > 1 || p.mod) {
+        lines.push('<div>' + plan.results.join(' + ') + (p.mod ? (p.mod > 0 ? ' + ' : ' − ') + Math.abs(p.mod) : '') + ' = ' + plan.total + '</div>');
+      }
+      if (p.sides === 10 && plan.results.indexOf(10) >= 0) lines.push('<div>10면체의 0은 10으로 읽습니다.</div>');
+      if (info.hidden) lines.push('<div>주사위가 많아 일부만 보여 줍니다.</div>');
+    }
+    detail.innerHTML = lines.join('') + verdict;
+
+    history.unshift({ e: p.s, t: plan.total });
+    history = history.slice(0, 8);
+    $('history').innerHTML = history.map(function (h) {
+      return '<li><span>' + h.e + '</span><span class="t">' + h.t + '</span></li>';
+    }).join('');
+    lock(false);
+  }
+  $('rollForm').addEventListener('submit', function (e) { e.preventDefault(); rollExpr(exprInput.value); });
+  $('quick').addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (!b || b.disabled) return;
+    exprInput.value = b.dataset.e; syncJudge();
+    rollExpr(b.dataset.e);
+  });
+
+  /* =====================================================
+     직업 데이터 (수호자 룰북 7판 예시 직업)
+  ===================================================== */
+  var IP = '대인 기능', ANY = '자유 기능';
+  var EDU4 = { base: [['교육', 4]], alt: [] };
+  var PHYS = { base: [['교육', 2]], alt: [['민첩', 2], ['근력', 2]] };
+  var APP = { base: [['교육', 2], ['외모', 2]], alt: [] };
+  var OCC = [
+    { n: '골동품상', en: 'Antiquarian', g: '학자', f: EDU4, cr: '30–70',
+      sk: ['감정', '예술/공예(택1)', '역사', '도서관 이용', '외국어', IP, '관찰력', ANY],
+      d: '희귀한 서적과 유물을 거래하며 물건에 담긴 내력을 읽어내는 사람.',
+      w: { 교육: 3, 지능: 2, 정신: 1 }, h: '물려받은 가게에서 출처를 알 수 없는 유품을 발견했다.' },
+    { n: '예술가', en: 'Artist', g: '예능', f: { base: [['교육', 2]], alt: [['민첩', 2], ['정신', 2]] }, cr: '9–50',
+      sk: ['예술/공예(택1)', '역사 또는 박물학', IP, '외국어 또는 모국어', '심리학', '관찰력', ANY, ANY],
+      d: '감수성과 표현력으로 남들이 놓친 것을 포착하는 창작자.',
+      w: { 정신: 2, 민첩: 1, 외모: 1, 지능: 1 }, h: '같은 꿈을 반복해서 꾸고, 그것을 그림으로 옮기고 있다.' },
+    { n: '운동선수', en: 'Athlete', g: '전투', f: PHYS, cr: '9–70',
+      sk: ['오르기', '뛰어오르기', '근접전(격투)', '승마', IP, '수영', '던지기', ANY],
+      d: '단련된 몸으로 달리고 오르고 싸우는 기동형 인물.',
+      w: { 근력: 2, 건강: 2, 민첩: 3, 크기: 1 }, h: '은퇴를 앞둔 경기에서 상대 선수가 이상한 말을 남기고 사라졌다.' },
+    { n: '작가', en: 'Author', g: '예능', f: EDU4, cr: '9–30',
+      sk: ['예술/공예(문학)', '역사', '도서관 이용', '박물학 또는 오컬트', '외국어', '모국어', '심리학', ANY],
+      d: '이야기를 쓰기 위해 자료를 파고들다 현실과 부딪히는 관찰자.',
+      w: { 지능: 2, 교육: 2, 정신: 2 }, h: '취재차 찾아간 마을에서 소설 속 장면과 똑같은 일이 벌어졌다.' },
+    { n: '성직자', en: 'Clergy Member', g: '사교', f: EDU4, cr: '9–60',
+      sk: ['회계', '역사', '도서관 이용', '듣기', '외국어', IP, '심리학', ANY],
+      d: '신앙과 공동체의 고민을 들어 주는 조언자.',
+      w: { 정신: 3, 교육: 2, 외모: 1 }, h: '고해성사에서 들은 이야기가 현실이 되기 시작했다.' },
+    { n: '범죄자', en: 'Criminal', g: '은밀', f: PHYS, cr: '5–65',
+      sk: ['감정 또는 예술/공예(연기)', IP, '심리학', '관찰력', '변장·근접전·사격·열쇠공·기계수리·손놀림·은밀행동 중 4개'],
+      d: '규칙 밖에서 살아남는 법을 아는 사람. 잠입과 거래 모두 능숙합니다.',
+      w: { 민첩: 3, 지능: 2, 외모: 1, 운: 1 }, h: '훔친 물건 속에서 열어서는 안 될 것이 나왔다.' },
+    { n: '한량', en: 'Dilettante', g: '사교', f: APP, cr: '50–99',
+      sk: ['예술/공예(택1)', '사격', '외국어', '승마', IP, ANY, ANY, ANY],
+      d: '풍족한 재산과 인맥을 바탕으로 취미처럼 사건에 뛰어드는 호기심 많은 사람.',
+      w: { 외모: 3, 운: 3, 교육: 1 }, h: '사교 모임에서 만난 지인이 다음 날 행방불명이 되었다.' },
+    { n: '의사', en: 'Doctor of Medicine', g: '의료', f: EDU4, cr: '30–80',
+      sk: ['응급처치', '외국어(라틴어)', '의학', '심리학', '과학(생물학)', '과학(약학)', ANY, ANY],
+      d: '부상과 질병을 진단하고 치료하는 전문가. 일행의 생명줄입니다.',
+      w: { 교육: 3, 지능: 2, 민첩: 1, 정신: 1 }, h: '원인 모를 증상을 호소하는 환자가 같은 마을에서 연달아 나타났다.' },
+    { n: '떠돌이', en: 'Drifter', g: '생존', f: { base: [['교육', 2]], alt: [['외모', 2], ['민첩', 2], ['근력', 2]] }, cr: '0–5',
+      sk: ['오르기', '뛰어오르기', '듣기', '항법', IP, '은밀행동', ANY, ANY],
+      d: '정처 없이 돌아다니며 눈치와 임기응변으로 버티는 사람.',
+      w: { 건강: 2, 운: 3, 민첩: 1 }, h: '쉼터에서 함께 지내던 사람들이 하나둘 사라지고 있다.' },
+    { n: '엔지니어', en: 'Engineer', g: '기술', f: EDU4, cr: '30–60',
+      sk: ['예술/공예(기술 제도)', '전기수리', '도서관 이용', '기계수리', '중장비 조작', '과학(공학)', '과학(물리학)', ANY],
+      d: '기계와 구조를 이해하는 실무형 전문가.',
+      w: { 지능: 3, 교육: 2, 민첩: 2 }, h: '설계한 시설에서 도면에 없는 공간이 발견되었다.' },
+    { n: '연예인', en: 'Entertainer', g: '예능', f: APP, cr: '9–70',
+      sk: ['예술/공예(연기)', '변장', IP, IP, '듣기', '심리학', ANY, ANY],
+      d: '사람들의 시선을 끌고 분위기를 읽는 데 능한 무대 위의 인물.',
+      w: { 외모: 3, 민첩: 1, 정신: 1 }, h: '공연 후 낯선 팬이 건넨 선물에 불길한 쪽지가 들어 있었다.' },
+    { n: '농부', en: 'Farmer', g: '기술', f: PHYS, cr: '9–30',
+      sk: ['예술/공예(농사)', '운전(자동차 또는 마차)', IP, '기계수리', '박물학', '중장비 조작', '추적', ANY],
+      d: '땅과 가축, 농기계를 다뤄 온 시골의 일꾼.',
+      w: { 근력: 2, 건강: 3, 크기: 1, 교육: 1 }, h: '밭에서 지도에도 기록에도 없는 구조물이 드러났다.' },
+    { n: '해커', en: 'Hacker / Consultant', g: '기술', f: EDU4, cr: '10–70',
+      sk: ['컴퓨터 사용', '전기수리', '전자공학', '도서관 이용', '관찰력', IP, ANY, ANY],
+      d: '현대 시대의 직업. 네트워크와 전자 기기로 정보를 캐내는 전문가.',
+      w: { 지능: 3, 교육: 2, 정신: 1 }, h: '지워진 로그 속에 존재하지 않아야 할 접속 기록이 남아 있었다.' },
+    { n: '기자', en: 'Journalist', g: '조사', f: EDU4, cr: '9–30',
+      sk: ['예술/공예(사진)', '역사', '도서관 이용', '모국어', IP, '심리학', ANY, ANY],
+      d: '발로 뛰며 사람들에게서 이야기를 끌어내는 취재자.',
+      w: { 교육: 2, 지능: 2, 외모: 1, 정신: 1 }, h: '익명의 제보 편지가 도착했고, 보낸 사람은 이미 실종 상태다.' },
+    { n: '변호사', en: 'Lawyer', g: '사교', f: EDU4, cr: '30–80',
+      sk: ['회계', '법률', '도서관 이용', '듣기', '설득', '심리학', IP, ANY],
+      d: '말과 서류로 길을 여는 법률 전문가.',
+      w: { 교육: 3, 지능: 2, 외모: 2 }, h: '맡은 사건의 피고인이 재판 전날 기이한 유언장을 남겼다.' },
+    { n: '사서', en: 'Librarian', g: '학자', f: EDU4, cr: '9–35',
+      sk: ['회계', '도서관 이용', '외국어', '모국어', ANY, ANY, ANY, ANY],
+      d: '방대한 기록을 분류하고 찾아내는 자료의 수호자.',
+      w: { 교육: 3, 지능: 2, 정신: 1 }, h: '대출 기록에 한 번도 반납되지 않은 책이 수십 년째 남아 있다.' },
+    { n: '군 장교', en: 'Military Officer', g: '전투', f: PHYS, cr: '20–70',
+      sk: ['회계', '사격', '항법', IP, IP, '심리학', '생존', ANY],
+      d: '병력을 지휘하고 보급과 작전을 책임지는 지휘관.',
+      w: { 교육: 2, 지능: 1, 근력: 1, 건강: 1, 정신: 2, 외모: 1 }, h: '작전 중 사라진 부대의 마지막 교신이 뒤늦게 도착했다.' },
+    { n: '선교사', en: 'Missionary', g: '사교', f: EDU4, cr: '0–30',
+      sk: ['예술/공예(택1)', '응급처치', '기계수리', '의학', '박물학', IP, ANY, ANY],
+      d: '낯선 땅에서 신앙과 의술, 기술을 나누는 봉사자.',
+      w: { 정신: 2, 건강: 2, 교육: 2, 외모: 1 }, h: '오지의 마을이 선교관의 연락에 한 달째 답하지 않는다.' },
+    { n: '음악가', en: 'Musician', g: '예능', f: { base: [['교육', 2]], alt: [['민첩', 2], ['정신', 2]] }, cr: '9–30',
+      sk: ['예술/공예(악기)', IP, '듣기', '심리학', ANY, ANY, ANY, ANY],
+      d: '소리와 박자로 감정을 움직이는 연주자.',
+      w: { 민첩: 2, 정신: 2, 외모: 1, 교육: 1 }, h: '악보 속에서 작곡한 기억이 없는 선율을 발견했다.' },
+    { n: '초심리학자', en: 'Parapsychologist', g: '학자', f: EDU4, cr: '9–30',
+      sk: ['인류학', '예술/공예(사진)', '역사', '도서관 이용', '오컬트', '외국어', '심리학', ANY],
+      d: '초자연 현상을 과학적으로 기록하고 검증하려는 연구자.',
+      w: { 정신: 2, 지능: 2, 교육: 2 }, h: '검증하려던 심령 현상이 측정 장비에 실제로 기록되었다.' },
+    { n: '조종사', en: 'Pilot', g: '기술', f: { base: [['교육', 2], ['민첩', 2]], alt: [] }, cr: '20–70',
+      sk: ['전기수리', '기계수리', '항법', '중장비 조작', '조종(항공기)', '과학(천문학)', ANY, ANY],
+      d: '비행기와 계기를 다루며 방향을 읽는 항공 전문가.',
+      w: { 민첩: 3, 지능: 2, 교육: 2 }, h: '야간 비행 중 항로에 없는 불빛을 따라간 승무원이 돌아오지 않았다.' },
+    { n: '형사', en: 'Police Detective', g: '조사', f: PHYS, cr: '20–50',
+      sk: ['예술/공예(연기) 또는 변장', '사격', '법률', '듣기', IP, '심리학', '관찰력', ANY],
+      d: '증거와 증언을 맞춰 보며 사건의 실마리를 찾는 수사관.',
+      w: { 지능: 3, 교육: 1, 정신: 1, 민첩: 1, 건강: 1 }, h: '종결 처리된 사건 현장에서 새로운 증거를 발견했다.' },
+    { n: '경찰관', en: 'Police Officer', g: '전투', f: PHYS, cr: '9–30',
+      sk: ['근접전(격투)', '사격', '응급처치', IP, '법률', '심리학', '관찰력', '운전 또는 승마'],
+      d: '현장에서 사람을 지키고 질서를 유지하는 순찰 경찰.',
+      w: { 근력: 2, 건강: 2, 민첩: 1, 정신: 1, 교육: 1 }, h: '순찰 중 신고된 적 없는 현장에서 비명 소리가 들렸다.' },
+    { n: '사립탐정', en: 'Private Investigator', g: '조사', f: PHYS, cr: '9–30',
+      sk: ['예술/공예(사진)', '변장', '법률', '도서관 이용', IP, '심리학', '관찰력', ANY],
+      d: '의뢰인의 사정에 한 걸음 더 들어가는 해결사.',
+      w: { 지능: 3, 민첩: 1, 정신: 1, 건강: 1 }, h: '단순한 신원 조사 의뢰였는데 의뢰인의 가족사가 수상하다.' },
+    { n: '교수', en: 'Professor', g: '학자', f: EDU4, cr: '20–70',
+      sk: ['도서관 이용', '외국어', '모국어', '심리학', ANY, ANY, ANY, ANY],
+      d: '전문 분야를 가르치고 연구하는 학자. 대학과 도서관이 든든한 배경입니다.',
+      w: { 교육: 3, 지능: 3, 정신: 1 }, h: '연구하던 고문서의 일부 페이지가 누군가에게 도난당했다.' },
+    { n: '군인', en: 'Soldier / Marine', g: '전투', f: PHYS, cr: '9–30',
+      sk: ['오르기 또는 수영', '회피', '근접전', '사격', '은밀행동', '생존', '응급처치·기계수리·외국어 중 2개'],
+      d: '훈련과 실전으로 단련된 전투원.',
+      w: { 근력: 3, 건강: 3, 민첩: 2, 크기: 1, 정신: 2 }, h: '전장에서 겪은 기묘한 일을 설명해 줄 사람을 찾고 있다.' },
+    { n: '부족민', en: 'Tribe Member', g: '생존', f: PHYS, cr: '0–15',
+      sk: ['오르기', '근접전 또는 던지기', '박물학', '듣기', '오컬트', '관찰력', '수영', '생존(택1)'],
+      d: '전통 사회에서 자라 자연과 공동체의 지혜로 살아가는 사람.',
+      w: { 건강: 3, 근력: 2, 민첩: 2, 정신: 1 }, h: '부족의 금기로 전해 오던 장소에 외부인이 들어갔다.' },
+    { n: '광신도', en: 'Zealot', g: '사교', f: { base: [['교육', 2]], alt: [['외모', 2], ['정신', 2]] }, cr: '0–30',
+      sk: ['역사', IP, IP, '심리학', '은밀행동', ANY, ANY, ANY],
+      d: '신념 하나에 모든 것을 거는 열성적인 신봉자.',
+      w: { 정신: 3, 외모: 1, 건강: 1, 교육: 1 }, h: '교단의 의식에서 본 환영이 현실의 사건으로 이어졌다.' }
+  ];
+  var OCCMAP = {};
+  OCC.forEach(function (o) { OCCMAP[o.n] = o; });
+
+  function bestAlt(o, v) {
+    var bi = 0;
+    o.f.alt.forEach(function (a, i) { if (v[a[0]] * a[1] > v[o.f.alt[bi][0]] * o.f.alt[bi][1]) bi = i; });
+    return bi;
+  }
+  function calc(o, v, ai) {
+    var pts = 0, parts = [], short = [];
+    o.f.base.forEach(function (b) { pts += v[b[0]] * b[1]; parts.push(b[0] + ' ' + v[b[0]] + ' × ' + b[1]); short.push(b[0] + '×' + b[1]); });
+    if (o.f.alt.length) {
+      var a = o.f.alt[ai]; pts += v[a[0]] * a[1];
+      parts.push(a[0] + ' ' + v[a[0]] + ' × ' + a[1]); short.push(a[0] + '×' + a[1]);
+    }
+    return { pts: pts, text: parts.join(' + '), short: short.join(' + ') };
+  }
+
+  /* =====================================================
+     시트
+  ===================================================== */
+  var DEFS = [
+    { k: '근력', n: 3, b: 0 }, { k: '건강', n: 3, b: 0 }, { k: '크기', n: 2, b: 6 },
+    { k: '민첩', n: 3, b: 0 }, { k: '외모', n: 3, b: 0 }, { k: '교육', n: 2, b: 6 },
+    { k: '지능', n: 2, b: 6 }, { k: '정신', n: 3, b: 0 }, { k: '운', n: 3, b: 0 }
+  ];
+  var statsEl = $('stats'), statusEl = $('status'), sheetLabel = $('sheetLabel'), skipBtn = $('skipBtn');
+  var rows = {}, fast = false;
+  DEFS.forEach(function (d) {
+    var row = document.createElement('div');
+    row.className = 'stat';
+    row.innerHTML = '<span class="name">' + d.k + '</span><div class="track"><div class="fill"></div></div><output class="val">—</output>';
+    statsEl.appendChild(row);
+    rows[d.k] = { row: row, fill: row.querySelector('.fill'), val: row.querySelector('.val') };
+  });
+  function tier(v) { return v >= 70 ? 'high' : v >= 40 ? 'mid' : 'low'; }
+  function setFill(r, v) { r.fill.style.width = Math.min(100, (v / 90) * 100) + '%'; }
+
+  skipBtn.addEventListener('click', function () { fast = true; skipBtn.hidden = true; sheetTray.finish(); });
+
+  async function rollStat(d) {
+    var r = rows[d.k];
+    r.row.classList.add('active');
+    r.fill.removeAttribute('data-tier');
+    sheetLabel.textContent = d.k + ' · ' + d.n + 'd6' + (d.b ? '+' + d.b : '') + ' × 5';
+
+    var dice = [], sum = 0, specs = [];
+    for (var i = 0; i < d.n; i++) { var x = rnd(1, 6); dice.push(x); sum += x; specs.push({ sides: 6, value: x }); }
+    var v = (sum + d.b) * 5;
+
+    if (fast || reduced) {
+      sheetTray.place(specs);
+    } else {
+      var done = false, t0 = performance.now();
+      var p = sheetTray.roll(specs, { duration: 950 }).then(function () { done = true; });
+      while (!done) {
+        var f = rnd(15, 90);
+        r.val.textContent = f; setFill(r, f);
+        await sleep(40 + Math.min(100, (performance.now() - t0) / 10));
+      }
+      await p;
+    }
+    r.val.textContent = v; setFill(r, v);
+    r.fill.setAttribute('data-tier', tier(v));
+    sheetLabel.textContent = d.k + '  ' + dice.join(' + ') + (d.b ? ' + ' + d.b : '') + ' = ' + (sum + d.b) + ', × 5 = ' + v;
+    r.row.classList.remove('active');
+    await sleep(fast || reduced ? 60 : 380);
+    return v;
+  }
+
+  var DB_TABLE = [[64, -2, '−2'], [84, -1, '−1'], [124, 0, '없음'], [164, 1, '1D4'], [204, 2, '1D6'],
+                  [284, 3, '2D6'], [364, 4, '3D6'], [444, 5, '4D6'], [524, 6, '5D6']];
+  function dbFor(t) {
+    for (var i = 0; i < DB_TABLE.length; i++) if (t <= DB_TABLE[i][0]) return DB_TABLE[i];
+    return [999, 6, '5D6+'];
+  }
+
+  /* ---------- 컨셉 추천 ---------- */
+  var ranked = [], page = 0, shown = [];
+  function rankConcepts(v) {
+    var list = OCC.map(function (o) {
+      var tw = 0, sc = 0;
+      Object.keys(o.w).forEach(function (k) { tw += o.w[k]; sc += o.w[k] * v[k]; });
+      return { o: o, score: sc / tw };
+    }).sort(function (a, b) { return b.score - a.score; });
+    var seen = {}, first = [], rest = [];
+    list.forEach(function (it) { if (!seen[it.o.g]) { seen[it.o.g] = 1; first.push(it); } else rest.push(it); });
+    return first.concat(rest);
+  }
+  function summarize(v, hp) {
+    var core = ['근력', '건강', '크기', '민첩', '외모', '교육', '지능', '정신'], hi = core[0], lo = core[0];
+    core.forEach(function (k) { if (v[k] > v[hi]) hi = k; if (v[k] < v[lo]) lo = k; });
+    var out = '가장 높은 능력치는 ' + hi + ' ' + v[hi] + ', 가장 낮은 능력치는 ' + lo + ' ' + v[lo] + '입니다.', flags = [];
+    if (v.정신 <= 35) flags.push('정신이 낮아 신화적 존재와 마주치면 이성을 잃기 쉬우니, 신중하게 움직이는 컨셉이 안전합니다.');
+    if (v.정신 >= 75) flags.push('정신이 높아 이성과 마력에 여유가 있습니다.');
+    if (v.운 >= 75) flags.push('운이 좋아 위기 때 행운 굴림에 기대볼 만합니다.');
+    if (v.운 <= 30) flags.push('운이 낮아 사건에 휘말리기 쉬운 불운한 조사자입니다.');
+    if (hp >= 14) flags.push('체력이 높아 몸으로 버티는 역할도 맡을 수 있습니다.');
+    if (hp <= 7) flags.push('체력이 낮아 정면 충돌은 피하는 편이 좋습니다.');
+    return out + (flags.length ? ' ' + flags.slice(0, 2).join(' ') : '');
+  }
+  function itemHTML(it) {
+    var o = it.o, v = state.v, fit = Math.round(it.score);
+    var label = fit >= 65 ? '아주 잘 맞음' : fit >= 50 ? '잘 맞음' : '도전적인 선택';
+    var keys = Object.keys(o.w).sort(function (a, b) { return o.w[b] - o.w[a] || v[b] - v[a]; });
+    var core = keys.map(function (k) { return k + ' ' + v[k]; }).join(', ');
+    var c = calc(o, v, bestAlt(o, v));
+    return '<article class="c-item">' +
+      '<div class="c-top"><h4 class="c-name">' + o.n + '</h4><div class="c-fit">적합도 <span class="n">' + fit + '</span>, ' + label + '</div></div>' +
+      '<div class="track"><div class="fill" data-tier="' + tier(fit) + '" style="width:' + Math.min(100, fit / 90 * 100) + '%"></div></div>' +
+      '<p class="c-desc">' + o.d + '</p>' +
+      '<p class="c-line"><b>핵심 능력치</b>' + core + '</p>' +
+      '<p class="c-line"><b>직업 기능 점수</b>' + c.short + ' = ' + c.pts + '</p>' +
+      '<p class="c-hook">시작 아이디어: ' + o.h + '</p>' +
+      '<button class="link-btn" type="button" data-job="' + o.n + '">이 직업 자세히 보기</button>' +
+      '</article>';
+  }
+  function renderConcepts() {
+    var pages = Math.ceil(ranked.length / 3), start = (page % pages) * 3;
+    shown = [];
+    for (var i = 0; i < 3; i++) shown.push(ranked[(start + i) % ranked.length]);
+    $('conceptList').innerHTML = shown.map(itemHTML).join('');
+    document.querySelectorAll('.c-item').forEach(function (el, i) {
+      setTimeout(function () { el.classList.add('in'); }, reduced ? 0 : 120 + i * 180);
+    });
+  }
+  moreBtn.addEventListener('click', function () { if (busy || !state) return; page++; renderConcepts(); });
+  $('conceptList').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-job]');
+    if (!b || !state) return;
+    openJob(b.dataset.job);
+    $('jobs').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+  });
+
+  /* ---------- 직업 선택 ---------- */
+  var chipsEl = $('jobChips'), detailEl = $('jobDetail'), doneEl = $('jobDone'), helpEl = $('jobsHelp'), jobDd = $('jobDd');
+  var JOB_DD_DEFAULT = "아래 '직업 선택'에서 직업을 확정하면 계산해 드려요.";
+  var curJob = null, curAlt = 0;
+
+  chipsEl.innerHTML = OCC.map(function (o) {
+    return '<button type="button" data-job="' + o.n + '" aria-pressed="false">' + o.n + '</button>';
+  }).join('');
+  chipsEl.addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-job]');
+    if (b) openJob(b.dataset.job);
+  });
+
+  function openJob(name) {
+    if (!state) return;
+    curJob = OCCMAP[name];
+    curAlt = bestAlt(curJob, state.v);
+    showChips(true);
+    chipsEl.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.job === name ? 'true' : 'false'); });
+    renderDetail();
+    detailEl.hidden = false;
+    doneEl.hidden = true;
+  }
+  function showChips(on) { chipsEl.hidden = !on; helpEl.hidden = !on; }
+  function renderDetail() {
+    var o = curJob, v = state.v, c = calc(o, v, curAlt);
+    var alt = '';
+    if (o.f.alt.length) {
+      alt = '<div class="jd-alt">두 번째 항목은 하나를 골라요.<div class="opts">' +
+        o.f.alt.map(function (a, i) {
+          return '<button type="button" data-alt="' + i + '" aria-pressed="' + (i === curAlt) + '">' + a[0] + ' ' + v[a[0]] + ' × ' + a[1] + ' = ' + v[a[0]] * a[1] + '</button>';
+        }).join('') + '</div></div>';
+    }
+    detailEl.innerHTML =
+      '<h4 class="jd-name">' + o.n + '<span class="jd-en">' + o.en + '</span></h4>' +
+      '<p class="jd-desc">' + o.d + '</p>' +
+      '<dl class="jd-grid">' +
+        '<div><dt>직업 기능 점수</dt><dd class="big">' + c.pts + '</dd><dd class="calc">' + c.text + '</dd></div>' +
+        '<div><dt>재력</dt><dd class="big">' + o.cr.replace('–', '~') + '</dd><dd class="calc">직업 기능 점수로 이 범위 안에 맞춰요</dd></div>' +
+      '</dl>' + alt +
+      '<dt style="font-size:14px;color:var(--muted)">직업 기능 8개</dt>' +
+      '<div class="jd-skills">' + o.sk.map(function (s) { return '<span>' + s + '</span>'; }).join('') + '</div>' +
+      '<div class="jd-actions"><button class="btn" type="button" data-act="confirm">이 직업으로 확정</button>' +
+      '<button class="btn ghost" type="button" data-act="close">닫기</button></div>';
+  }
+  detailEl.addEventListener('click', function (e) {
+    var a = e.target.closest('button[data-alt]');
+    if (a) { curAlt = +a.dataset.alt; renderDetail(); return; }
+    var b = e.target.closest('button[data-act]');
+    if (!b) return;
+    if (b.dataset.act === 'close') {
+      detailEl.hidden = true; curJob = null;
+      chipsEl.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
+    }
+    if (b.dataset.act === 'confirm') confirmJob();
+  });
+  function confirmJob() {
+    var o = curJob, c = calc(o, state.v, curAlt);
+    state.job = { o: o, pts: c.pts, text: c.short };
+    detailEl.hidden = true; showChips(false);
+    doneEl.hidden = false;
+    doneEl.innerHTML = '<div>확정한 직업 <b>' + o.n + '</b>, 직업 기능 점수 <b>' + c.pts + '</b> (' + c.short + '), 재력 ' + o.cr.replace('–', '~') + '</div>' +
+      '<button class="btn ghost" type="button" data-act="change">직업 바꾸기</button>';
+    jobDd.className = 'set';
+    jobDd.innerHTML = '<span class="n">' + c.pts + '</span> ' + o.n + ', ' + c.short;
+  }
+  doneEl.addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-act="change"]');
+    if (!b) return;
+    state.job = null; curJob = null;
+    doneEl.hidden = true; showChips(true);
+    chipsEl.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
+    jobDd.className = ''; jobDd.textContent = JOB_DD_DEFAULT;
+  });
+
+  /* ---------- 시트 생성 ---------- */
+  async function makeSheet() {
+    if (busy) return;
+    lock(true);
+    state = null; curJob = null;
+    fast = reduced; skipBtn.hidden = reduced;
+    $('concept').hidden = true; $('jobs').hidden = true;
+    detailEl.hidden = true; doneEl.hidden = true; showChips(true);
+    chipsEl.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
+    jobDd.className = ''; jobDd.textContent = JOB_DD_DEFAULT;
+    DEFS.forEach(function (d) {
+      var r = rows[d.k];
+      r.val.textContent = '—'; r.fill.style.width = '0'; r.fill.removeAttribute('data-tier');
+    });
+    document.querySelectorAll('#derived > div').forEach(function (el) {
+      el.classList.remove('show');
+      if (el.dataset.d !== 'job') el.querySelector('dd').textContent = '—';
+    });
+    statusEl.textContent = '운명의 주사위를 굴리는 중입니다…';
+
+    var v = {};
+    for (var i = 0; i < DEFS.length; i++) v[DEFS[i].k] = await rollStat(DEFS[i]);
+    skipBtn.hidden = true;
+
+    var mov = (v.근력 > v.크기 && v.민첩 > v.크기) ? 9 : (v.근력 >= v.크기 || v.민첩 >= v.크기) ? 8 : 7;
+    var hp = Math.floor((v.건강 + v.크기) / 10), mp = Math.floor(v.정신 / 5), bt = dbFor(v.근력 + v.크기);
+    state = { v: v, mov: mov, hp: hp, mp: mp, bt: bt, job: null };
+
+    var derived = [['mov', mov], ['hp', hp], ['mp', mp], ['san', v.정신], ['build', bt[1]], ['db', bt[2]], ['hobby', v.지능 * 2]];
+    for (var j = 0; j < derived.length; j++) {
+      var el = document.querySelector('[data-d="' + derived[j][0] + '"]');
+      el.querySelector('dd').textContent = derived[j][1];
+      el.classList.add('show');
+      await sleep(reduced ? 0 : 130);
+    }
+    document.querySelector('[data-d="job"]').classList.add('show');
+
+    ranked = rankConcepts(v); page = 0;
+    $('conceptSummary').textContent = summarize(v, hp);
+    $('concept').hidden = false;
+    renderConcepts();
+    $('jobs').hidden = false;
+    $('concept').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest' });
+
+    statusEl.textContent = '조사자가 완성되었습니다. 어울리는 컨셉을 참고해 직업을 골라 보세요.';
+    sheetBtn.textContent = '다시 굴리기';
+    lock(false);
+  }
+  sheetBtn.addEventListener('click', makeSheet);
+
+  /* ---------- 복사 ---------- */
+  function buildText() {
+    var v = state.v, bt = state.bt;
+    var lines = [
+      '근력: ' + v.근력, '건강: ' + v.건강, '크기: ' + v.크기, '민첩: ' + v.민첩,
+      '외모: ' + v.외모, '교육: ' + v.교육, '지능: ' + v.지능, '정신: ' + v.정신,
+      '이동력: ' + state.mov, '체력: ' + state.hp, '마력: ' + state.mp, '운: ' + v.운,
+      '체구: ' + bt[1], '피해 보너스: ' + bt[2], '이성: ' + v.정신, '관심 기능 점수: ' + v.지능 * 2
+    ];
+    if (state.job) {
+      lines.push('직업: ' + state.job.o.n, '직업 기능 점수: ' + state.job.pts + ' (' + state.job.text + ')', '재력: ' + state.job.o.cr.replace('–', '~'));
+    } else {
+      lines.push('직업 기능 점수는 선택한 직업에 따라 달라집니다.');
+      if (shown.length) lines.push('추천 컨셉: ' + shown.map(function (it) { return it.o.n; }).join(', '));
+    }
+    return lines.join('\n');
+  }
+  var toast = $('toast');
+  copyBtn.addEventListener('click', function () {
+    if (!state) return;
+    function done(ok) {
+      toast.textContent = ok ? '복사했습니다' : '복사하지 못했습니다. 직접 선택해 복사하세요.';
+      toast.classList.add('on');
+      setTimeout(function () { toast.classList.remove('on'); }, 1800);
+    }
+    try { navigator.clipboard.writeText(buildText()).then(function () { done(true); }, function () { done(false); }); }
+    catch (e) { done(false); }
+  });
+})();
+</script>
+</body>
+</html>

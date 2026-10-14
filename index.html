@@ -173,6 +173,37 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
 .job-done { padding: 14px 18px; border: 1px solid var(--good); border-radius: 8px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .job-done b { font-weight: 800; }
 
+/* ---------- 멀티플레이 방 ---------- */
+.room { margin-bottom: 24px; }
+.room h2 { margin-bottom: 8px; }
+.room .lead { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
+.room-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.room-form input { font: inherit; font-size: 16px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); min-width: 0; }
+#myName { width: 11em; }
+#joinCode { width: 8em; text-transform: uppercase; letter-spacing: .12em; font-family: var(--num); font-size: 19px; text-align: center; }
+.room-sep { color: var(--muted); font-size: 14px; }
+.room-msg { color: var(--bad); font-size: 14px; min-height: 1.5em; margin: 8px 0 0; }
+.room-msg.ok { color: var(--muted); }
+.room-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.room-code { font-family: var(--num); font-size: 34px; letter-spacing: .14em; line-height: 1.1; }
+.room-bar .grow { flex: 1; }
+.room-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 20px; margin-top: 16px; }
+@media (max-width: 860px) { .room-cols { grid-template-columns: minmax(0, 1fr); } }
+.room h3 { margin: 0 0 6px; font-size: 16px; font-weight: 800; }
+.players { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.players li { display: flex; gap: 8px; align-items: center; }
+.tag { font-size: 12px; padding: 0 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); }
+.feed { list-style: none; margin: 0; padding: 0; max-height: 170px; overflow-y: auto; font-size: 15px; display: grid; gap: 3px; }
+.feed li { color: var(--ink); }
+.feed li.sys { color: var(--muted); font-size: 14px; }
+.feed b { font-weight: 800; }
+.pcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 16px; }
+.pcards:empty { display: none; }
+.pcard { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; background: var(--bg); font-size: 14px; line-height: 1.6; }
+.pcard h4 { margin: 0 0 2px; font-size: 17px; font-weight: 800; }
+.pcard p { margin: 0; color: var(--muted); }
+.pcard p.job { color: var(--ink); margin-top: 4px; }
+
 .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); background: var(--ink); color: var(--bg); padding: 8px 18px; border-radius: 999px; font-size: 14px; opacity: 0; pointer-events: none; transition: .3s; z-index: 10; }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
 
@@ -189,6 +220,34 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     </div>
     <button class="theme-btn" id="themeBtn" type="button">테마 바꾸기</button>
   </header>
+
+  <section class="panel room" id="room" aria-labelledby="roomTitle">
+    <h2 id="roomTitle">멀티플레이 방</h2>
+    <div id="roomLobby">
+      <p class="lead">방을 만들면 5자리 코드가 생겨요. 친구들이 코드를 입력하면 같은 방에 들어와서, 서로의 주사위 굴림과 완성한 시트를 함께 볼 수 있습니다.</p>
+      <div class="room-form">
+        <input id="myName" maxlength="12" placeholder="내 이름" aria-label="내 이름" autocomplete="off">
+        <button class="btn" id="createRoom" type="button">방 만들기</button>
+        <span class="room-sep">또는</span>
+        <input id="joinCode" maxlength="5" placeholder="방 코드" aria-label="방 코드" autocomplete="off" spellcheck="false">
+        <button class="btn ghost" id="joinRoom" type="button">입장</button>
+      </div>
+      <p class="room-msg" id="roomMsg" role="status"></p>
+    </div>
+    <div id="roomLive" hidden>
+      <div class="room-bar">
+        <div><div style="font-size:13px;color:var(--muted)">방 코드</div><div class="room-code" id="roomCode">-----</div></div>
+        <button class="btn ghost" id="copyCode" type="button">코드 복사</button>
+        <span class="grow"></span>
+        <button class="btn ghost" id="leaveRoom" type="button">방 나가기</button>
+      </div>
+      <div class="room-cols">
+        <div><h3>참가자</h3><ul class="players" id="players"></ul></div>
+        <div><h3>기록</h3><ul class="feed" id="feed"></ul></div>
+      </div>
+      <div class="pcards" id="pcards"></div>
+    </div>
+  </section>
 
   <main class="grid">
     <!-- 주사위 -->
@@ -283,6 +342,7 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
 </div>
 <div class="toast" id="toast" role="status">복사했습니다</div>
 
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 (function () {
   'use strict';
@@ -940,6 +1000,52 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     return { specs: specs, results: results, sum: sum, total: sum + mod, info: info };
   }
 
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+  }
+  function buildReport(p, plan, skill) {
+    var ls = [p.s], info = plan.info, verdict = null;
+    if (info.pct && info.single) {
+      if (info.kind) {
+        ls.push('십의 자리 ' + info.tens.join(', ') + ', 일의 자리 ' + info.ones);
+        ls.push(info.vals.join(', ') + ' 중 ' + (info.kind === 'bonus' ? '보너스라서 낮은 값' : '페널티라서 높은 값') + ' ' + info.chosen + '을 씁니다.');
+      } else {
+        ls.push('십의 자리 ' + info.tens[0] + ', 일의 자리 ' + info.ones + ' → ' + info.chosen);
+      }
+      if (info.vals.indexOf(100) >= 0) ls.push('십의 자리 0과 일의 자리 0은 100으로 읽습니다.');
+      if (skill != null) ls.push('기능 수치 ' + skill + ' (어려움 ' + Math.floor(skill / 2) + ' 이하, 극단 ' + Math.floor(skill / 5) + ' 이하)');
+      verdict = judgeRoll(plan.total, skill);
+    } else {
+      if (p.n > 1 || p.mod) ls.push(plan.results.join(' + ') + (p.mod ? (p.mod > 0 ? ' + ' : ' − ') + Math.abs(p.mod) : '') + ' = ' + plan.total);
+      if (p.sides === 10 && plan.results.indexOf(10) >= 0) ls.push('10면체의 0은 10으로 읽습니다.');
+      if (info.hidden) ls.push('주사위가 많아 일부만 보여 줍니다.');
+    }
+    return { lines: ls, verdict: verdict };
+  }
+  function showReport(rep, who) {
+    detail.innerHTML = (who ? '<div>' + esc(who) + '님의 굴림</div>' : '') +
+      rep.lines.map(function (l) { return '<div>' + esc(l) + '</div>'; }).join('') +
+      (rep.verdict ? '<div class="verdict ' + rep.verdict.c + '">' + esc(rep.verdict.t) + '</div>' : '');
+  }
+  function applyVerdict(rep) {
+    var v = rep.verdict;
+    if (!v) return;
+    if (v.c === 'crit') { totalEl.classList.add('crit'); diceTray.mark('crit'); }
+    else if (v.c === 'fumble') { totalEl.classList.add('fumble'); diceTray.mark('fumble'); }
+    else if (v.c === 'good') totalEl.classList.add('good');
+  }
+  async function animateRoll(specs, lo, hi, mod) {
+    var done = false, t0 = performance.now();
+    var pr = diceTray.roll(specs, { duration: 1200 }).then(function () { done = true; });
+    if (!reduced) {
+      while (!done) {
+        totalEl.textContent = rnd(lo, hi) + mod;
+        await sleep(45 + Math.min(110, (performance.now() - t0) / 9));
+      }
+    }
+    await pr;
+  }
+
   async function rollExpr(raw) {
     if (busy) return;
     var p = parseExpr(raw);
@@ -955,55 +1061,50 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     var plan = planRoll(p);
     var skillRaw = parseInt(skillInput.value, 10);
     var skill = (!skillInput.disabled && skillRaw > 0) ? skillRaw : null;
+    var rep = buildReport(p, plan, skill);
+    var lo = p.sides === 100 ? 1 : p.n, hi = p.sides === 100 ? 100 : p.n * p.sides;
 
-    var done = false, t0 = performance.now();
-    var pr = diceTray.roll(plan.specs, { duration: 1200 }).then(function () { done = true; });
-    var hi = p.sides === 100 ? 100 : p.n * p.sides;
-    if (!reduced) {
-      while (!done) {
-        totalEl.textContent = rnd(p.sides === 100 ? 1 : p.n, hi) + p.mod;
-        await sleep(45 + Math.min(110, (performance.now() - t0) / 9));
-      }
-    }
-    await pr;
+    Room.send({ t: 'roll', expr: p.s, specs: plan.specs, total: plan.total, scr: [lo, hi], rep: rep });
+    await animateRoll(plan.specs, lo, hi, p.mod);
 
     totalEl.textContent = plan.total;
     void totalEl.offsetWidth;
     totalEl.classList.add('land');
-
-    var lines = ['<div>' + p.s + '</div>'];
-    var verdict = '';
-    var info = plan.info;
-    if (info.pct && info.single) {
-      if (info.kind) {
-        lines.push('<div>십의 자리 ' + info.tens.join(', ') + ' · 일의 자리 ' + info.ones + '</div>');
-        lines.push('<div>' + info.vals.join(', ') + ' 중 ' + (info.kind === 'bonus' ? '보너스라서 낮은 값' : '페널티라서 높은 값') + ' ' + info.chosen + '을 씁니다.</div>');
-      } else {
-        lines.push('<div>십의 자리 ' + info.tens[0] + ', 일의 자리 ' + info.ones + ' → ' + info.chosen + '</div>');
-      }
-      if (info.vals.indexOf(100) >= 0) lines.push('<div>십의 자리 0과 일의 자리 0은 100으로 읽습니다.</div>');
-      var j = judgeRoll(plan.total, skill);
-      if (skill != null) lines.push('<div>기능 수치 ' + skill + ' (어려움 ' + Math.floor(skill / 2) + ' 이하, 극단 ' + Math.floor(skill / 5) + ' 이하)</div>');
-      if (j) {
-        verdict = '<div class="verdict ' + j.c + '">' + j.t + '</div>';
-        if (j.c === 'crit') { totalEl.classList.add('crit'); diceTray.mark('crit'); }
-        else if (j.c === 'fumble') { totalEl.classList.add('fumble'); diceTray.mark('fumble'); }
-        else if (j.c === 'good') totalEl.classList.add('good');
-      }
-    } else {
-      if (p.n > 1 || p.mod) {
-        lines.push('<div>' + plan.results.join(' + ') + (p.mod ? (p.mod > 0 ? ' + ' : ' − ') + Math.abs(p.mod) : '') + ' = ' + plan.total + '</div>');
-      }
-      if (p.sides === 10 && plan.results.indexOf(10) >= 0) lines.push('<div>10면체의 0은 10으로 읽습니다.</div>');
-      if (info.hidden) lines.push('<div>주사위가 많아 일부만 보여 줍니다.</div>');
-    }
-    detail.innerHTML = lines.join('') + verdict;
+    showReport(rep, null);
+    applyVerdict(rep);
 
     history.unshift({ e: p.s, t: plan.total });
     history = history.slice(0, 8);
     $('history').innerHTML = history.map(function (h) {
-      return '<li><span>' + h.e + '</span><span class="t">' + h.t + '</span></li>';
+      return '<li><span>' + esc(h.e) + '</span><span class="t">' + h.t + '</span></li>';
     }).join('');
+    Room.feedMine(p.s + ' → ' + plan.total + (rep.verdict ? ', ' + rep.verdict.t : ''));
+    lock(false);
+  }
+
+  /* 다른 사람의 굴림을 내 화면에서 재생 */
+  var remoteQ = [], remoteBusy = false;
+  function queueRemote(m) { remoteQ.push(m); drainRemote(); }
+  async function drainRemote() {
+    if (remoteBusy) return;
+    remoteBusy = true;
+    while (remoteQ.length) {
+      if (busy) { await sleep(250); continue; }
+      await playRemote(remoteQ.shift());
+    }
+    remoteBusy = false;
+  }
+  async function playRemote(m) {
+    lock(true);
+    totalEl.className = 'total';
+    detail.textContent = '';
+    await animateRoll(m.specs, m.scr[0], m.scr[1], 0);
+    totalEl.textContent = m.total;
+    void totalEl.offsetWidth;
+    totalEl.classList.add('land');
+    showReport(m.rep, m.name);
+    applyVerdict(m.rep);
+    Room.feedOther(m.name, m.expr + ' → ' + m.total + (m.rep.verdict ? ', ' + m.rep.verdict.t : ''));
     lock(false);
   }
   $('rollForm').addEventListener('submit', function (e) { e.preventDefault(); rollExpr(exprInput.value); });
@@ -1334,6 +1435,7 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
       '<button class="btn ghost" type="button" data-act="change">직업 바꾸기</button>';
     jobDd.className = 'set';
     jobDd.innerHTML = '<span class="n">' + c.pts + '</span> ' + o.n + ', ' + c.short;
+    Room.sendSheet();
   }
   doneEl.addEventListener('click', function (e) {
     var b = e.target.closest('button[data-act="change"]');
@@ -1342,6 +1444,7 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     doneEl.hidden = true; showChips(true);
     chipsEl.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
     jobDd.className = ''; jobDd.textContent = JOB_DD_DEFAULT;
+    Room.sendSheet();
   });
 
   /* ---------- 시트 생성 ---------- */
@@ -1391,6 +1494,7 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     statusEl.textContent = '조사자가 완성되었습니다. 어울리는 컨셉을 참고해 직업을 골라 보세요.';
     sheetBtn.textContent = '다시 굴리기';
     lock(false);
+    Room.sendSheet();
   }
   sheetBtn.addEventListener('click', makeSheet);
 
@@ -1422,6 +1526,325 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     try { navigator.clipboard.writeText(buildText()).then(function () { done(true); }, function () { done(false); }); }
     catch (e) { done(false); }
   });
+
+  /* =====================================================
+     멀티플레이 방 (WebRTC, 방장 브라우저가 중계)
+  ===================================================== */
+  var STAT_KEYS = ['근력', '건강', '크기', '민첩', '외모', '교육', '지능', '정신', '운'];
+  var VERDICT_OK = { crit: 1, fumble: 1, good: 1, fail: 1 };
+  function isInt(x, a, b) { return typeof x === 'number' && isFinite(x) && Math.floor(x) === x && x >= a && x <= b; }
+  function txt(x, n) { return typeof x === 'string' ? x.replace(/[\u0000-\u001f]/g, '').slice(0, n) : ''; }
+  function cleanName(s) { s = txt(s == null ? '' : String(s), 40).replace(/[<>]/g, '').trim().slice(0, 12); return s || '조사자'; }
+
+  function cleanRoll(d) {
+    if (!d || !Array.isArray(d.specs) || d.specs.length < 1 || d.specs.length > 4) return null;
+    var specs = [];
+    for (var i = 0; i < d.specs.length; i++) {
+      var sp = d.specs[i];
+      if (!sp || !isInt(sp.sides, 2, 100)) return null;
+      var pct = sp.pct === true;
+      if (pct && sp.sides !== 10) return null;
+      var vmax = pct ? 9 : sp.sides, vmin = pct ? 0 : 1;
+      if (!isInt(sp.value, vmin, vmax)) return null;
+      var cap = typeof sp.caption === 'string' ? txt(sp.caption, 8) : null;
+      specs.push({ sides: sp.sides, pct: pct, value: sp.value, caption: cap || null });
+    }
+    if (!isInt(d.total, -1000000, 1000000)) return null;
+    if (!Array.isArray(d.scr) || d.scr.length !== 2 || !isInt(d.scr[0], -1000000, 1000000) || !isInt(d.scr[1], -1000000, 1000000) || d.scr[0] > d.scr[1]) return null;
+    var rep = d.rep;
+    if (!rep || !Array.isArray(rep.lines) || rep.lines.length > 8) return null;
+    var lines = rep.lines.map(function (l) { return txt(l, 120); });
+    var verdict = null;
+    if (rep.verdict) {
+      if (!VERDICT_OK[rep.verdict.c]) return null;
+      verdict = { t: txt(rep.verdict.t, 10), c: rep.verdict.c };
+    }
+    return { expr: txt(d.expr, 20), specs: specs, total: d.total, scr: [d.scr[0], d.scr[1]], rep: { lines: lines, verdict: verdict } };
+  }
+  function cleanSheet(d) {
+    if (!d || !d.stats || !d.derived) return null;
+    var stats = {};
+    for (var i = 0; i < STAT_KEYS.length; i++) {
+      var k = STAT_KEYS[i];
+      if (!isInt(d.stats[k], 0, 300)) return null;
+      stats[k] = d.stats[k];
+    }
+    var dv = d.derived;
+    if (!isInt(dv.mov, 0, 20) || !isInt(dv.hp, 0, 100) || !isInt(dv.mp, 0, 100) || !isInt(dv.san, 0, 300) || !isInt(dv.build, -5, 20) || !isInt(dv.hobby, 0, 1000)) return null;
+    var out = { stats: stats, derived: { mov: dv.mov, hp: dv.hp, mp: dv.mp, san: dv.san, build: dv.build, db: txt(dv.db, 8), hobby: dv.hobby }, job: null };
+    if (d.job) {
+      if (!isInt(d.job.pts, 0, 5000)) return null;
+      out.job = { n: txt(d.job.n, 12), pts: d.job.pts, text: txt(d.job.text, 40), cr: txt(d.job.cr, 10) };
+    }
+    return out;
+  }
+
+  var Room = (function () {
+    var PREFIX = 'coc7-';
+    var peer = null, role = null, code = '', open = false, hostConn = null, myId = '';
+    var conns = {}, players = {}, sheets = {}, joining = null;
+    var lobby = $('roomLobby'), live = $('roomLive'), msgEl = $('roomMsg');
+    var nameInp = $('myName'), codeInp = $('joinCode');
+    var feedEl = $('feed'), playersEl = $('players'), cardsEl = $('pcards');
+    var hasPeer = typeof window.Peer === 'function';
+    var createBtn = $('createRoom'), joinBtn = $('joinRoom');
+
+    try { var saved = localStorage.getItem('coc_name'); if (saved) nameInp.value = saved; } catch (e) {}
+
+    function setMsg(t, ok) { msgEl.textContent = t || ''; msgEl.className = 'room-msg' + (ok ? ' ok' : ''); }
+    function genCode() {
+      var a = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', c = '';
+      for (var i = 0; i < 5; i++) c += a[rnd(0, a.length - 1)];
+      return c;
+    }
+    function myName() { return players[myId] || cleanName(nameInp.value); }
+    function setBusyUi(b) { createBtn.disabled = b; joinBtn.disabled = b; }
+
+    /* ----- 화면 ----- */
+    function feedLine(html, cls) {
+      var li = document.createElement('li');
+      if (cls) li.className = cls;
+      li.innerHTML = html;
+      feedEl.insertBefore(li, feedEl.firstChild);
+      while (feedEl.children.length > 40) feedEl.removeChild(feedEl.lastChild);
+    }
+    function renderPlayers() {
+      playersEl.innerHTML = Object.keys(players).map(function (id) {
+        return '<li><span>' + esc(players[id]) + '</span>' +
+          (id === 'HOST' ? '<span class="tag">방장</span>' : '') +
+          (id === myId ? '<span class="tag">나</span>' : '') + '</li>';
+      }).join('');
+      renderCards();
+    }
+    function renderCards() {
+      var html = '';
+      Object.keys(sheets).forEach(function (id) {
+        if (id === myId || !players[id]) return;
+        var s = sheets[id], d = s.derived;
+        html += '<article class="pcard"><h4>' + esc(players[id]) + '</h4>' +
+          '<p>' + STAT_KEYS.map(function (k) { return k + ' ' + s.stats[k]; }).join(', ') + '</p>' +
+          '<p>이동력 ' + d.mov + ', 체력 ' + d.hp + ', 마력 ' + d.mp + ', 이성 ' + d.san + ', 체구 ' + d.build + ', 피해 보너스 ' + esc(d.db) + '</p>' +
+          '<p class="job">' + (s.job ? '직업 ' + esc(s.job.n) + ', 직업 기능 점수 ' + s.job.pts : '직업 선택 중') + '</p></article>';
+      });
+      cardsEl.innerHTML = html;
+    }
+    function enterLive() {
+      lobby.hidden = true; live.hidden = false;
+      $('roomCode').textContent = code;
+      feedEl.innerHTML = '';
+      renderPlayers();
+      setMsg('');
+      feedLine('방에 입장했어요.', 'sys');
+      setBusyUi(false);
+    }
+    function reset(text) {
+      try { if (peer) peer.destroy(); } catch (e) {}
+      peer = null; role = null; open = false; hostConn = null; conns = {}; players = {}; sheets = {}; myId = ''; code = '';
+      live.hidden = true; lobby.hidden = false;
+      setMsg(text || '', true);
+      setBusyUi(false);
+    }
+
+    /* ----- 전송 ----- */
+    function relay(msg, except) {
+      Object.keys(conns).forEach(function (id) {
+        if (id === except) return;
+        try { if (conns[id].open) conns[id].send(msg); } catch (e) {}
+      });
+    }
+    function rosterList() { return Object.keys(players).map(function (id) { return { id: id, name: players[id] }; }); }
+    function broadcastRoster() {
+      relay({ t: 'roster', list: rosterList() }, null);
+      renderPlayers();
+    }
+    function send(msg) {
+      if (!open) return;
+      if (role === 'host') { msg.from = 'HOST'; msg.name = players.HOST; relay(msg, null); }
+      else { try { hostConn.send(msg); } catch (e) {} }
+    }
+    var lastSheet = null;
+    function sendSheet() {
+      if (!state) return;
+      var v = state.v;
+      var payload = { t: 'sheet', stats: {}, derived: { mov: state.mov, hp: state.hp, mp: state.mp, san: v.정신, build: state.bt[1], db: state.bt[2], hobby: v.지능 * 2 },
+        job: state.job ? { n: state.job.o.n, pts: state.job.pts, text: state.job.text, cr: state.job.o.cr.replace('–', '~') } : null };
+      STAT_KEYS.forEach(function (k) { payload.stats[k] = v[k]; });
+      lastSheet = payload;
+      if (!open) return;
+      if (role === 'host') { sheets.HOST = cleanSheet(payload); }
+      send(JSON.parse(JSON.stringify(payload)));
+    }
+
+    /* ----- 방장 ----- */
+    function onHostData(conn, d) {
+      if (!d || typeof d !== 'object') return;
+      var id = conn.peer;
+      if (d.t === 'hello') {
+        if (players[id]) return;
+        if (Object.keys(players).length >= 8) { try { conn.send({ t: 'full' }); } catch (e) {} setTimeout(function () { try { conn.close(); } catch (e) {} }, 300); return; }
+        conns[id] = conn;
+        players[id] = cleanName(d.name);
+        try { conn.send({ t: 'welcome', you: id }); } catch (e) {}
+        broadcastRoster();
+        Object.keys(sheets).forEach(function (sid) {
+          if (sid !== id && sheets[sid] && players[sid]) {
+            var m = JSON.parse(JSON.stringify(sheets[sid])); m.t = 'sheet'; m.from = sid; m.name = players[sid];
+            try { conn.send(m); } catch (e) {}
+          }
+        });
+        relay({ t: 'sys', text: players[id] + '님이 입장했어요.' }, id);
+        feedLine(esc(players[id]) + '님이 입장했어요.', 'sys');
+        return;
+      }
+      if (!players[id]) return;
+      if (d.t === 'roll') {
+        var c = cleanRoll(d);
+        if (!c) return;
+        c.t = 'roll'; c.from = id; c.name = players[id];
+        relay(c, id);
+        queueRemote({ name: players[id], expr: c.expr, specs: c.specs, total: c.total, scr: c.scr, rep: c.rep });
+      } else if (d.t === 'sheet') {
+        var sh = cleanSheet(d);
+        if (!sh) return;
+        sheets[id] = sh;
+        var m2 = JSON.parse(JSON.stringify(sh)); m2.t = 'sheet'; m2.from = id; m2.name = players[id];
+        relay(m2, id);
+        renderCards();
+      }
+    }
+    function dropConn(conn) {
+      var id = conn.peer;
+      if (!players[id]) return;
+      var nm = players[id];
+      delete players[id]; delete conns[id]; delete sheets[id];
+      broadcastRoster();
+      relay({ t: 'sys', text: nm + '님이 나갔어요.' }, null);
+      feedLine(esc(nm) + '님이 나갔어요.', 'sys');
+    }
+    function create() {
+      if (!hasPeer) { setMsg('멀티플레이 연결 도구를 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.'); return; }
+      var name = cleanName(nameInp.value);
+      try { localStorage.setItem('coc_name', name); } catch (e) {}
+      setBusyUi(true); setMsg('방을 만드는 중…', true);
+      (function attempt(n) {
+        var c = genCode(), p;
+        try { p = new window.Peer(PREFIX + c); } catch (e) { setBusyUi(false); setMsg('연결을 시작하지 못했어요.'); return; }
+        var opened = false;
+        p.on('open', function () {
+          opened = true; peer = p; role = 'host'; code = c; myId = 'HOST'; players = { HOST: name }; open = true;
+          p.on('connection', function (conn) {
+            conn.on('data', function (d) { onHostData(conn, d); });
+            conn.on('close', function () { dropConn(conn); });
+            conn.on('error', function () { dropConn(conn); });
+          });
+          p.on('disconnected', function () { try { p.reconnect(); } catch (e) {} });
+          enterLive();
+          if (lastSheet) sendSheet();
+        });
+        p.on('error', function (e) {
+          if (opened) { feedLine('연결 오류가 있었어요.', 'sys'); return; }
+          try { p.destroy(); } catch (x) {}
+          if (e && e.type === 'unavailable-id' && n < 5) attempt(n + 1);
+          else { setBusyUi(false); setMsg('서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 보세요.'); }
+        });
+      })(0);
+    }
+
+    /* ----- 참가자 ----- */
+    function onClientData(d) {
+      if (!d || typeof d !== 'object') return;
+      if (d.t === 'welcome') { myId = typeof d.you === 'string' ? d.you : myId; renderPlayers(); }
+      else if (d.t === 'roster' && Array.isArray(d.list)) {
+        var np = {};
+        d.list.slice(0, 12).forEach(function (x) { if (x && typeof x.id === 'string') np[txt(x.id, 80)] = cleanName(x.name); });
+        players = np;
+        Object.keys(sheets).forEach(function (id) { if (!players[id]) delete sheets[id]; });
+        renderPlayers();
+      }
+      else if (d.t === 'roll') {
+        var c = cleanRoll(d);
+        if (!c) return;
+        queueRemote({ name: cleanName(d.name), expr: c.expr, specs: c.specs, total: c.total, scr: c.scr, rep: c.rep });
+      }
+      else if (d.t === 'sheet') {
+        var sh = cleanSheet(d);
+        if (!sh || typeof d.from !== 'string') return;
+        sheets[txt(d.from, 80)] = sh;
+        renderCards();
+      }
+      else if (d.t === 'sys') feedLine(esc(txt(d.text, 60)), 'sys');
+      else if (d.t === 'full') leave('방이 가득 찼어요. 최대 8명까지 들어올 수 있어요.');
+      else if (d.t === 'closed') leave('방장이 방을 닫았어요.');
+    }
+    function failJoin(text, p) {
+      if (joining) { clearTimeout(joining); joining = null; }
+      try { if (p) p.destroy(); } catch (e) {}
+      hostConn = null; setBusyUi(false); setMsg(text);
+    }
+    function join(raw) {
+      if (!hasPeer) { setMsg('멀티플레이 연결 도구를 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.'); return; }
+      var c = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (c.length !== 5) { setMsg('방 코드는 5자리예요.'); return; }
+      var name = cleanName(nameInp.value);
+      try { localStorage.setItem('coc_name', name); } catch (e) {}
+      setBusyUi(true); setMsg('방을 찾는 중…', true);
+      var p;
+      try { p = new window.Peer(); } catch (e) { failJoin('연결을 시작하지 못했어요.', null); return; }
+      var connected = false;
+      p.on('open', function (id) {
+        myId = id;
+        var conn = p.connect(PREFIX + c, { reliable: true });
+        hostConn = conn;
+        joining = setTimeout(function () { failJoin('방을 찾지 못했어요. 코드를 다시 확인해 주세요.', p); }, 10000);
+        conn.on('open', function () {
+          if (joining) { clearTimeout(joining); joining = null; }
+          connected = true; peer = p; role = 'client'; code = c; open = true;
+          players = {}; players[myId] = name;
+          conn.send({ t: 'hello', name: name });
+          enterLive();
+          if (lastSheet) sendSheet();
+        });
+        conn.on('data', onClientData);
+        conn.on('close', function () { if (open) leave('방장과 연결이 끊겼어요.'); });
+        conn.on('error', function () { if (!connected) failJoin('방에 연결하지 못했어요.', p); });
+      });
+      p.on('error', function (e) {
+        if (connected) { feedLine('연결 오류가 있었어요.', 'sys'); return; }
+        if (e && e.type === 'peer-unavailable') failJoin('그 코드의 방이 없어요. 코드를 다시 확인해 주세요.', p);
+        else failJoin('서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 보세요.', p);
+      });
+    }
+    function leave(text) {
+      if (role === 'host') relay({ t: 'closed' }, null);
+      var p = peer;
+      var wait = role === 'host' ? 250 : 0;
+      if (wait) setTimeout(function () { try { p.destroy(); } catch (e) {} }, wait);
+      else try { p.destroy(); } catch (e) {}
+      peer = null; role = null; open = false; hostConn = null; conns = {}; players = {}; sheets = {}; myId = ''; code = '';
+      live.hidden = true; lobby.hidden = false;
+      setMsg(text || '', true);
+      setBusyUi(false);
+    }
+
+    createBtn.addEventListener('click', create);
+    joinBtn.addEventListener('click', function () { join(codeInp.value); });
+    codeInp.addEventListener('keydown', function (e) { if (e.key === 'Enter') join(codeInp.value); });
+    nameInp.addEventListener('keydown', function (e) { if (e.key === 'Enter') create(); });
+    $('leaveRoom').addEventListener('click', function () { leave('방에서 나왔어요.'); });
+    $('copyCode').addEventListener('click', function () {
+      function ok(t) { toast.textContent = t; toast.classList.add('on'); setTimeout(function () { toast.classList.remove('on'); }, 1800); }
+      try { navigator.clipboard.writeText(code).then(function () { ok('코드를 복사했어요'); }, function () { ok('복사하지 못했어요'); }); }
+      catch (e) { ok('복사하지 못했어요'); }
+    });
+    if (!hasPeer) setMsg('멀티플레이 연결 도구를 불러오지 못했어요. 이 페이지가 일반 웹 주소에서 열렸는지, 인터넷에 연결돼 있는지 확인해 주세요.');
+
+    return {
+      send: send, sendSheet: sendSheet,
+      feedMine: function (t) { if (open) feedLine('<b>' + esc(myName()) + '</b> ' + esc(t)); },
+      feedOther: function (n, t) { if (open) feedLine('<b>' + esc(n) + '</b> ' + esc(t)); }
+    };
+  })();
+
 })();
 </script>
 </body>

@@ -204,6 +204,51 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
 .pcard p { margin: 0; color: var(--muted); }
 .pcard p.job { color: var(--ink); margin-top: 4px; }
 
+/* ---------- 역할 / 판정 요청 / 기능 배분 ---------- */
+#keeperPanel { display: none; }
+.keeper #keeperPanel { display: block; }
+.keeper #sheetPanel { display: none; }
+.keeper .pcards { display: none; }
+.reqbox { margin-bottom: 24px; border-color: var(--brass); }
+.reqbox h2 { margin-bottom: 4px; }
+.req { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.req:first-child { border-top: 0; }
+.req small { color: var(--muted); font-size: 14px; }
+.panel .lead { color: var(--muted); font-size: 15px; margin: 0 0 12px; }
+.pools { display: flex; flex-wrap: wrap; gap: 6px 28px; margin: 4px 0 8px; font-size: 15px; }
+.pools b { font-family: var(--num); font-size: 26px; font-weight: 400; }
+.pools .neg b { color: var(--bad); }
+.alloc h4 { margin: 16px 0 4px; font-size: 16px; font-weight: 800; }
+.arow { display: grid; grid-template-columns: minmax(0, 1fr) auto 5.4em 3.4em; gap: 8px; align-items: center; padding: 5px 0; border-top: 1px solid var(--line); font-size: 15px; }
+.arow:first-child { border-top: 0; }
+@media (max-width: 520px) { .arow { grid-template-columns: minmax(0, 1fr) 5em 3em; } .arow .abase { display: none; } }
+.aname { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
+.aname small { color: var(--muted); }
+.aname select, .aname input, .apts, .hob-add select, .hob-add input, .kopts select, .kfilter { font: inherit; font-size: 14px; padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); min-width: 0; }
+.aname input { width: 7em; }
+.abase { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.apts { width: 5.4em; text-align: right; font-family: var(--num); font-size: 17px; }
+.apts:disabled { opacity: .45; }
+.atot { font-family: var(--num); font-size: 21px; text-align: right; }
+.atot.over { color: var(--bad); }
+.hob-add { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 4px; }
+.alloc-msg { font-size: 14px; color: var(--muted); min-height: 1.5em; margin: 8px 0 0; }
+.alloc-msg.bad { color: var(--bad); }
+.sk-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.sk-list span { font-size: 13px; padding: 0 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); }
+.sk-list span.on { border-color: var(--accent); font-weight: 700; }
+.kopts { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 4px 0 12px; font-size: 14px; color: var(--muted); }
+.kopts label { display: flex; align-items: center; gap: 6px; }
+.kfilter { width: 100%; margin: 12px 0 4px; font-size: 15px; }
+.kgroup { margin-top: 12px; }
+.kgroup h4 { margin: 0 0 6px; font-size: 15px; font-weight: 800; }
+.sk-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.sk-btns button { font: inherit; font-size: 14px; padding: 2px 12px; border-radius: 999px; background: none; color: var(--ink); border: 1px solid var(--line); cursor: pointer; transition: background-color .2s, border-color .2s; }
+.sk-btns button:hover { border-color: var(--accent); color: var(--accent); }
+.sk-btns button.on { border-color: var(--accent); font-weight: 700; }
+.sk-btns button.sent { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.sk-btns button b { font-family: var(--num); font-weight: 400; font-size: 16px; margin-left: 5px; }
+
 .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); background: var(--ink); color: var(--bg); padding: 8px 18px; border-radius: 999px; font-size: 14px; opacity: 0; pointer-events: none; transition: .3s; z-index: 10; }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
 
@@ -224,7 +269,7 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
   <section class="panel room" id="room" aria-labelledby="roomTitle">
     <h2 id="roomTitle">멀티플레이 방</h2>
     <div id="roomLobby">
-      <p class="lead">방을 만들면 5자리 코드가 생겨요. 친구들이 코드를 입력하면 같은 방에 들어와서, 서로의 주사위 굴림과 완성한 시트를 함께 볼 수 있습니다.</p>
+      <p class="lead">방을 만든 사람이 수호자가 되고, 코드로 입장한 사람들은 플레이어가 돼요. 플레이어는 시트를 만들고, 수호자는 플레이어의 기능을 눌러 판정을 요청합니다.</p>
       <div class="room-form">
         <input id="myName" maxlength="12" placeholder="내 이름" aria-label="내 이름" autocomplete="off">
         <button class="btn" id="createRoom" type="button">방 만들기</button>
@@ -247,6 +292,11 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
       </div>
       <div class="pcards" id="pcards"></div>
     </div>
+  </section>
+
+  <section class="panel reqbox" id="reqBox" hidden aria-live="polite">
+    <h2>판정 요청</h2>
+    <div id="reqList"></div>
   </section>
 
   <main class="grid">
@@ -292,7 +342,7 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     </section>
 
     <!-- 시트 -->
-    <section class="panel" aria-labelledby="sheetTitle">
+    <section class="panel" id="sheetPanel" aria-labelledby="sheetTitle">
       <div class="sheet-top">
         <h2 id="sheetTitle">조사자 시트</h2>
         <div class="actions">
@@ -337,6 +387,45 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
         <div class="job-done" id="jobDone" hidden></div>
         <p class="note">직업 기능과 공식은 7판 수호자 룰북의 예시 직업을 정리한 것입니다. 한국어판 표기나 세부 내용은 조금 다를 수 있으니 룰북으로 한 번 더 확인하세요. 대인 기능은 매력·말재주·위협·설득 중에서, 자유 기능은 직업이나 개인 특기에 맞춰 고릅니다.</p>
       </section>
+
+      <section class="section alloc" id="alloc" hidden aria-labelledby="allocTitle">
+        <div class="section-head"><h3 id="allocTitle">기능 배분</h3></div>
+        <p class="lead">직업 기능 점수는 직업 기능과 재력에, 관심 기능 점수는 원하는 기능 어디에든 쓸 수 있어요. 한 기능은 99까지 올릴 수 있고, 크툴루 신화에는 쓸 수 없습니다.</p>
+        <div class="pools"><div id="occPool"></div><div id="hobPool"></div></div>
+        <h4>직업 기능</h4>
+        <div id="occRows"></div>
+        <h4>관심 기능</h4>
+        <div id="hobRows"></div>
+        <div class="hob-add">
+          <select id="hobSel" aria-label="추가할 기능"></select>
+          <input id="hobSpec" maxlength="10" placeholder="세부 종류 (예: 라틴어)" hidden>
+          <button class="link-btn" id="hobAdd" type="button">기능 추가</button>
+        </div>
+        <p class="alloc-msg" id="allocMsg"></p>
+        <div class="jd-actions"><button class="btn" id="allocConfirm" type="button">배분 확정</button></div>
+      </section>
+
+      <section class="section" id="skillsum" hidden aria-labelledby="sumTitle">
+        <div class="section-head"><h3 id="sumTitle">완성된 기능</h3><button class="btn ghost" id="allocReopen" type="button">배분 다시 하기</button></div>
+        <p class="lead">굵게 표시된 기능이 점수를 배분한 기능이에요. 수호자가 이 기능을 누르면 판정 요청이 옵니다.</p>
+        <div class="sk-list" id="skList"></div>
+      </section>
+    </section>
+
+    <section class="panel" id="keeperPanel" aria-labelledby="keeperTitle">
+      <h2 id="keeperTitle">수호자 화면</h2>
+      <p class="lead">플레이어를 고르고 기능을 누르면 그 플레이어에게 판정 요청이 갑니다. 플레이어가 굴림 버튼을 누르면 결과가 모두에게 보여요.</p>
+      <div class="kopts">
+        <label>난이도
+          <select id="kDiff"><option value="n">보통</option><option value="h">어려움</option><option value="e">극단적</option></select>
+        </label>
+        <label>보너스·페널티
+          <select id="kBp"><option value="0">없음</option><option value="b1">보너스 1개</option><option value="b2">보너스 2개</option><option value="p1">페널티 1개</option><option value="p2">페널티 2개</option></select>
+        </label>
+      </div>
+      <div class="job-chips" id="kPlayers"></div>
+      <input class="kfilter" id="kFilter" placeholder="기능 이름으로 찾기" aria-label="기능 검색" autocomplete="off">
+      <div id="kSheet"></div>
     </section>
   </main>
 </div>
@@ -960,11 +1049,11 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     return { t: '실패', c: 'fail' };
   }
 
-  function planRoll(p) {
+  function planRoll(p, bpOverride) {
     var n = p.n, sides = p.sides, mod = p.mod, specs = [], results = [], info = {}, i;
     if (sides === 100) {
       var single = (n === 1 && !mod);
-      var bpv = single ? bpSel.value : '0';
+      var bpv = single ? (bpOverride != null ? bpOverride : bpSel.value) : '0';
       var kind = bpv[0] === 'b' ? 'bonus' : bpv[0] === 'p' ? 'penalty' : null;
       var extra = kind ? +bpv[1] : 0;
       if (single) {
@@ -1003,8 +1092,24 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
   }
-  function buildReport(p, plan, skill) {
-    var ls = [p.s], info = plan.info, verdict = null;
+  var DIFF = { n: { name: '보통', rank: 1, div: 1 }, h: { name: '어려움', rank: 2, div: 2 }, e: { name: '극단적', rank: 3, div: 5 } };
+  var RANK = { '보통 성공': 1, '어려운 성공': 2, '극단적 성공': 3, '대성공': 4 };
+  var BP_OK = { '0': 1, b1: 1, b2: 1, p1: 1, p2: 1 };
+  function applyDiff(lv, skill, v, diff) {
+    var d = DIFF[diff], need = Math.floor(skill / d.div);
+    if (lv.c === 'fumble') return { verdict: lv, line: '난이도 ' + d.name + ': 실패' };
+    var ok = lv.c === 'crit' || (RANK[lv.t] || 0) >= d.rank;
+    return { verdict: (lv.c === 'crit' || ok) ? lv : { t: '실패', c: 'fail' },
+             line: '난이도 ' + d.name + ': ' + (ok ? '성공' : '실패') + ' (' + need + ' 이하 필요, 굴림 ' + v + ')' };
+  }
+  function flash(t) {
+    var el = $('toast');
+    el.textContent = t; el.classList.add('on');
+    setTimeout(function () { el.classList.remove('on'); }, 2200);
+  }
+  function buildReport(p, plan, skill, o) {
+    o = o || {};
+    var ls = [o.label || p.s], info = plan.info, verdict = null;
     if (info.pct && info.single) {
       if (info.kind) {
         ls.push('십의 자리 ' + info.tens.join(', ') + ', 일의 자리 ' + info.ones);
@@ -1014,7 +1119,11 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
       }
       if (info.vals.indexOf(100) >= 0) ls.push('십의 자리 0과 일의 자리 0은 100으로 읽습니다.');
       if (skill != null) ls.push('기능 수치 ' + skill + ' (어려움 ' + Math.floor(skill / 2) + ' 이하, 극단 ' + Math.floor(skill / 5) + ' 이하)');
-      verdict = judgeRoll(plan.total, skill);
+      var lv = judgeRoll(plan.total, skill);
+      if (o.diff && skill != null && lv) {
+        var r = applyDiff(lv, skill, plan.total, o.diff);
+        verdict = r.verdict; ls.push(r.line);
+      } else verdict = lv;
     } else {
       if (p.n > 1 || p.mod) ls.push(plan.results.join(' + ') + (p.mod ? (p.mod > 0 ? ' + ' : ' − ') + Math.abs(p.mod) : '') + ' = ' + plan.total);
       if (p.sides === 10 && plan.results.indexOf(10) >= 0) ls.push('10면체의 0은 10으로 읽습니다.');
@@ -1046,25 +1155,18 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     await pr;
   }
 
-  async function rollExpr(raw) {
-    if (busy) return;
-    var p = parseExpr(raw);
-    err.textContent = '';
-    if (!p) { err.textContent = '"3d6", "1d100", "1d20+2" 같은 형식으로 입력하세요.'; return; }
-    if (p.n < 1 || p.n > 100 || p.sides < 2 || p.sides > 100) {
-      err.textContent = '주사위는 1~100개, 면은 2~100개까지 지원합니다.'; return;
-    }
+  /* 굴림 한 번 실행: o = { skill, bpv, label, diff } */
+  async function runRoll(p, o) {
+    o = o || {};
     lock(true);
     totalEl.className = 'total';
     detail.textContent = '';
-
-    var plan = planRoll(p);
-    var skillRaw = parseInt(skillInput.value, 10);
-    var skill = (!skillInput.disabled && skillRaw > 0) ? skillRaw : null;
-    var rep = buildReport(p, plan, skill);
+    var plan = planRoll(p, o.bpv);
+    var rep = buildReport(p, plan, o.skill == null ? null : o.skill, o);
     var lo = p.sides === 100 ? 1 : p.n, hi = p.sides === 100 ? 100 : p.n * p.sides;
+    var label = o.label || p.s;
 
-    Room.send({ t: 'roll', expr: p.s, specs: plan.specs, total: plan.total, scr: [lo, hi], rep: rep });
+    Room.send({ t: 'roll', expr: label, specs: plan.specs, total: plan.total, scr: [lo, hi], rep: rep });
     await animateRoll(plan.specs, lo, hi, p.mod);
 
     totalEl.textContent = plan.total;
@@ -1073,14 +1175,56 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     showReport(rep, null);
     applyVerdict(rep);
 
-    history.unshift({ e: p.s, t: plan.total });
+    history.unshift({ e: label, t: plan.total });
     history = history.slice(0, 8);
     $('history').innerHTML = history.map(function (h) {
       return '<li><span>' + esc(h.e) + '</span><span class="t">' + h.t + '</span></li>';
     }).join('');
-    Room.feedMine(p.s + ' → ' + plan.total + (rep.verdict ? ', ' + rep.verdict.t : ''));
+    Room.feedMine(label + ' → ' + plan.total + (rep.verdict ? ', ' + rep.verdict.t : ''));
     lock(false);
   }
+  async function rollExpr(raw) {
+    if (busy) return;
+    var p = parseExpr(raw);
+    err.textContent = '';
+    if (!p) { err.textContent = '"3d6", "1d100", "1d20+2" 같은 형식으로 입력하세요.'; return; }
+    if (p.n < 1 || p.n > 100 || p.sides < 2 || p.sides > 100) {
+      err.textContent = '주사위는 1~100개, 면은 2~100개까지 지원합니다.'; return;
+    }
+    var skillRaw = parseInt(skillInput.value, 10);
+    var skill = (!skillInput.disabled && skillRaw > 0) ? skillRaw : null;
+    await runRoll(p, { skill: skill });
+  }
+
+  /* 수호자의 판정 요청 (플레이어 화면) */
+  var reqs = [];
+  function showRequest(rq) {
+    reqs = reqs.filter(function (r) { return r.rid !== rq.rid; });
+    reqs.push(rq);
+    renderReqs();
+    $('reqBox').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest' });
+  }
+  function renderReqs() {
+    $('reqBox').hidden = !reqs.length;
+    $('reqList').innerHTML = reqs.map(function (r) {
+      var d = DIFF[r.diff];
+      var bp = r.bp === '0' ? '' : ', ' + (r.bp[0] === 'b' ? '보너스 ' : '페널티 ') + r.bp[1] + '개';
+      return '<div class="req"><div><b>' + esc(r.skill) + '</b> 판정을 요청했어요<br><small>기능 수치 ' + r.value + ', 난이도 ' + d.name + ' (' + Math.floor(r.value / d.div) + ' 이하)' + bp + '</small></div>' +
+        '<button class="btn" type="button" data-rid="' + esc(r.rid) + '">판정 굴리기</button></div>';
+    }).join('');
+  }
+  $('reqList').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-rid]');
+    if (!b) return;
+    var r = null;
+    for (var i = 0; i < reqs.length; i++) if (reqs[i].rid === b.dataset.rid) r = reqs[i];
+    if (!r) return;
+    if (busy) { flash('다른 굴림이 끝난 뒤에 눌러 주세요.'); return; }
+    reqs = reqs.filter(function (x) { return x !== r; });
+    renderReqs();
+    $('trayDice').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
+    runRoll({ s: '1d100', n: 1, sides: 100, mod: 0 }, { skill: r.value, bpv: r.bp, label: r.skill + ' 판정', diff: r.diff });
+  });
 
   /* 다른 사람의 굴림을 내 화면에서 재생 */
   var remoteQ = [], remoteBusy = false;
@@ -1435,6 +1579,7 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
       '<button class="btn ghost" type="button" data-act="change">직업 바꾸기</button>';
     jobDd.className = 'set';
     jobDd.innerHTML = '<span class="n">' + c.pts + '</span> ' + o.n + ', ' + c.short;
+    startAlloc();
     Room.sendSheet();
   }
   doneEl.addEventListener('click', function (e) {
@@ -1443,9 +1588,239 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     state.job = null; curJob = null;
     doneEl.hidden = true; showChips(true);
     chipsEl.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
+    resetAlloc();
     jobDd.className = ''; jobDd.textContent = JOB_DD_DEFAULT;
     Room.sendSheet();
   });
+
+
+  /* =====================================================
+     기능 배분
+  ===================================================== */
+  var FAMS = ['예술/공예', '외국어', '과학', '조종', '생존'];
+  var SKILLS = [['회계', 5], ['인류학', 1], ['감정', 5], ['고고학', 1], ['예술/공예', 5], ['매력', 15], ['오르기', 20], ['변장', 5],
+    ['회피', 'dex'], ['운전(자동차)', 20], ['전기수리', 10], ['말재주', 5], ['근접전(격투)', 25], ['사격(권총)', 20], ['사격(소총/산탄총)', 25],
+    ['응급처치', 30], ['역사', 5], ['위협', 15], ['뛰어오르기', 20], ['외국어', 1], ['모국어', 'edu'], ['법률', 5], ['도서관 이용', 20],
+    ['듣기', 20], ['열쇠공', 1], ['기계수리', 10], ['의학', 1], ['박물학', 10], ['항법', 10], ['오컬트', 5], ['중장비 조작', 1], ['설득', 10],
+    ['조종', 1], ['심리학', 10], ['정신분석', 1], ['승마', 5], ['과학', 1], ['손놀림', 10], ['관찰력', 25], ['은밀행동', 20], ['생존', 10],
+    ['수영', 20], ['던지기', 20], ['추적', 10], ['컴퓨터 사용', 5], ['전자공학', 1]];
+  var SKMAP = {};
+  SKILLS.forEach(function (x) { SKMAP[x[0]] = x; });
+  var ALLNAMES = SKILLS.map(function (x) { return x[0]; });
+  var ALIAS = { '운전': ['운전(자동차)'], '근접전': ['근접전(격투)'], '사격': ['사격(권총)', '사격(소총/산탄총)'] };
+  function isRoot(n) { return FAMS.indexOf(n) >= 0; }
+  function famOf(n) { var r = n.split('(')[0]; return FAMS.indexOf(r) >= 0 ? r : null; }
+  function baseOf(n, v) {
+    var x = SKMAP[n];
+    if (!x) { var f = famOf(n); x = f ? SKMAP[f] : null; }
+    if (!x) return 0;
+    if (x[1] === 'dex') return Math.floor(v.민첩 / 2);
+    if (x[1] === 'edu') return v.교육;
+    return x[1];
+  }
+  function normName(n) { n = n.trim(); return ALIAS[n] || [n]; }
+  function slotsFor(job) {
+    var out = [];
+    job.sk.forEach(function (s0) {
+      var s = s0.replace('운전(자동차 또는 마차)', '운전(자동차)').replace('(택1)', ''), m;
+      if (s === IP) { out.push({ label: '대인 기능', opts: ['매력', '말재주', '위협', '설득'] }); return; }
+      if (s === ANY) { out.push({ label: '자유 기능', any: true }); return; }
+      if ((m = /^(.+) 중 (\d)개$/.exec(s))) {
+        var opts = [];
+        m[1].split('·').forEach(function (x) { normName(x).forEach(function (y) { opts.push(y); }); });
+        for (var i = 0; i < +m[2]; i++) out.push({ label: '선택 기능', opts: opts });
+        return;
+      }
+      if (s.indexOf(' 또는 ') >= 0) {
+        var o2 = [];
+        s.split(' 또는 ').forEach(function (x) { normName(x).forEach(function (y) { o2.push(y); }); });
+        out.push({ label: s0, opts: o2 });
+        return;
+      }
+      var nn = normName(s);
+      if (nn.length > 1) out.push({ label: s0, opts: nn });
+      else out.push({ label: s0, fixed: nn[0] });
+    });
+    return out;
+  }
+  function withSpec(n, spec) { spec = (spec || '').trim().slice(0, 10); return isRoot(n) && spec ? n + '(' + spec + ')' : n; }
+  function slotName(sl) { return sl.pick ? withSpec(sl.pick, sl.spec) : null; }
+  function hobName(h) { return withSpec(h.sel, h.spec); }
+
+  var allocEl = $('alloc'), sumEl = $('skillsum');
+  function startAlloc() {
+    var j = state.job.o, cr = j.cr.split('–');
+    state.alloc = {
+      slots: slotsFor(j).map(function (d) { return { d: d, pick: d.fixed || null, spec: '', pts: 0 }; }),
+      crMin: +cr[0], crMax: +cr[1], crPts: 0, hob: [],
+      occPool: state.job.pts, hobPool: state.v.지능 * 2
+    };
+    state.skills = null;
+    allocEl.hidden = false; sumEl.hidden = true;
+    renderAlloc();
+  }
+  function resetAlloc() {
+    if (state) { state.alloc = null; state.skills = null; }
+    allocEl.hidden = true; sumEl.hidden = true;
+  }
+  function totals() {
+    var a = state.alloc, v = state.v, t = {};
+    a.slots.forEach(function (sl) {
+      var n = slotName(sl); if (!n) return;
+      if (!(n in t)) t[n] = baseOf(n, v);
+      t[n] += sl.pts;
+    });
+    a.hob.forEach(function (h) {
+      var n = hobName(h);
+      if (!(n in t)) t[n] = baseOf(n, v);
+      t[n] += h.pts;
+    });
+    return t;
+  }
+  function specInput(attr, i, val) {
+    return '<input class="spec" ' + attr + '="' + i + '" value="' + esc(val) + '" placeholder="세부 종류" maxlength="10">';
+  }
+  function slotRow(sl, i) {
+    var d = sl.d, a = state.alloc, nameHtml = '', name = slotName(sl);
+    if (d.fixed) {
+      nameHtml = '<span>' + esc(d.fixed) + '</span>' + (isRoot(d.fixed) ? specInput('data-spec', i, sl.spec) : '');
+    } else {
+      var taken = a.slots.map(function (x, k) { return k !== i ? x.pick : null; });
+      var list = d.any ? ALLNAMES : d.opts;
+      nameHtml = '<select data-pick="' + i + '"><option value="">' + esc(d.label) + ' 고르기</option>' +
+        list.filter(function (n) { return n === sl.pick || isRoot(n) || taken.indexOf(n) < 0; }).map(function (n) {
+          return '<option value="' + esc(n) + '"' + (n === sl.pick ? ' selected' : '') + '>' + esc(n) + '</option>';
+        }).join('') + '</select>';
+      if (sl.pick && isRoot(sl.pick)) nameHtml += specInput('data-spec', i, sl.spec);
+    }
+    return '<div class="arow" data-key="o' + i + '"><div class="aname">' + nameHtml + '</div>' +
+      '<div class="abase">' + (name ? '기본 ' + baseOf(name, state.v) : '') + '</div>' +
+      '<input type="number" class="apts" min="0" max="99" value="' + sl.pts + '" data-kind="occ" data-i="' + i + '"' + (name ? '' : ' disabled') + ' aria-label="직업 기능 점수">' +
+      '<div class="atot"></div></div>';
+  }
+  function renderAlloc() {
+    var a = state.alloc;
+    var occ = a.slots.map(slotRow).join('');
+    occ += '<div class="arow" data-key="cr"><div class="aname"><span>재력</span><small>허용 범위 ' + a.crMin + '~' + a.crMax + '</small></div>' +
+      '<div class="abase">기본 0</div><input type="number" class="apts" min="0" max="99" value="' + a.crPts + '" data-kind="cr" aria-label="재력에 쓸 점수"><div class="atot"></div></div>';
+    $('occRows').innerHTML = occ;
+    $('hobRows').innerHTML = a.hob.length ? a.hob.map(function (h, i) {
+      return '<div class="arow" data-key="h' + i + '"><div class="aname"><span>' + esc(h.sel) + '</span>' +
+        (isRoot(h.sel) ? specInput('data-hspec', i, h.spec) : '') +
+        '<button type="button" class="link-btn" data-hdel="' + i + '">빼기</button></div>' +
+        '<div class="abase">기본 ' + baseOf(h.sel, state.v) + '</div>' +
+        '<input type="number" class="apts" min="0" max="99" value="' + h.pts + '" data-kind="hob" data-i="' + i + '" aria-label="관심 기능 점수"><div class="atot"></div></div>';
+    }).join('') : '<p class="note" style="margin:4px 0">아래에서 점수를 쓸 기능을 추가하세요.</p>';
+    var sel = $('hobSel');
+    if (!sel.options.length) {
+      sel.innerHTML = ALLNAMES.map(function (n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('');
+    }
+    $('hobSpec').hidden = !isRoot(sel.value);
+    refreshAlloc();
+  }
+  function refreshAlloc() {
+    var a = state.alloc, t = totals(), occUsed = a.crPts, hobUsed = 0, block = [], note = [];
+    a.slots.forEach(function (sl) { occUsed += sl.pts; });
+    a.hob.forEach(function (h) { hobUsed += h.pts; });
+    var occLeft = a.occPool - occUsed, hobLeft = a.hobPool - hobUsed;
+    $('occPool').className = occLeft < 0 ? 'neg' : '';
+    $('occPool').innerHTML = '직업 기능 점수 남은 <b>' + occLeft + '</b> / ' + a.occPool;
+    $('hobPool').className = hobLeft < 0 ? 'neg' : '';
+    $('hobPool').innerHTML = '관심 기능 점수 남은 <b>' + hobLeft + '</b> / ' + a.hobPool;
+    var over = false;
+    document.querySelectorAll('#alloc .arow').forEach(function (row) {
+      var key = row.dataset.key, tot = '', bad = false;
+      if (key === 'cr') { tot = a.crPts; bad = a.crPts > a.crMax || a.crPts < a.crMin; }
+      else if (key[0] === 'o') { var n = slotName(a.slots[+key.slice(1)]); if (n) { tot = t[n]; bad = t[n] > 99; } }
+      else { var n2 = hobName(a.hob[+key.slice(1)]); tot = t[n2]; bad = t[n2] > 99; }
+      var el = row.querySelector('.atot');
+      el.textContent = tot; el.className = 'atot' + (bad ? ' over' : '');
+      if (bad && key !== 'cr') over = true;
+    });
+    if (a.slots.some(function (sl) { return !sl.pick; })) block.push('고르지 않은 직업 기능이 있어요.');
+    if (occLeft < 0) block.push('직업 기능 점수를 ' + (-occLeft) + ' 초과했어요.');
+    if (hobLeft < 0) block.push('관심 기능 점수를 ' + (-hobLeft) + ' 초과했어요.');
+    if (over) block.push('한 기능은 99를 넘길 수 없어요.');
+    if (a.crPts < a.crMin || a.crPts > a.crMax) block.push('재력은 ' + a.crMin + '~' + a.crMax + ' 사이로 맞춰 주세요.');
+    if (!block.length) {
+      if (occLeft > 0) note.push('직업 기능 점수가 ' + occLeft + ' 남아 있어요.');
+      if (hobLeft > 0) note.push('관심 기능 점수가 ' + hobLeft + ' 남아 있어요.');
+    }
+    var m = $('allocMsg');
+    m.className = 'alloc-msg' + (block.length ? ' bad' : '');
+    m.textContent = block.length ? block[0] : (note.join(' ') || '점수를 모두 배분했어요. 확정해도 좋아요.');
+    $('allocConfirm').disabled = block.length > 0;
+  }
+  allocEl.addEventListener('input', function (e) {
+    var el = e.target, a = state && state.alloc;
+    if (!a) return;
+    if (el.matches('input[data-kind]')) {
+      var val = Math.max(0, Math.min(99, parseInt(el.value, 10) || 0)), i = +el.dataset.i;
+      if (el.dataset.kind === 'occ') a.slots[i].pts = val;
+      else if (el.dataset.kind === 'hob') a.hob[i].pts = val;
+      else a.crPts = val;
+      refreshAlloc();
+    } else if (el.hasAttribute('data-spec')) { a.slots[+el.dataset.spec].spec = el.value; refreshAlloc(); }
+    else if (el.hasAttribute('data-hspec')) { a.hob[+el.dataset.hspec].spec = el.value; refreshAlloc(); }
+  });
+  allocEl.addEventListener('change', function (e) {
+    var el = e.target, a = state && state.alloc;
+    if (!a) return;
+    if (el.matches('input[data-kind]')) { el.value = Math.max(0, Math.min(99, parseInt(el.value, 10) || 0)); }
+    else if (el.hasAttribute('data-pick')) {
+      var sl = a.slots[+el.dataset.pick];
+      sl.pick = el.value || null; sl.spec = ''; sl.pts = 0;
+      renderAlloc();
+    } else if (el.id === 'hobSel') { $('hobSpec').hidden = !isRoot(el.value); }
+  });
+  allocEl.addEventListener('click', function (e) {
+    var a = state && state.alloc;
+    if (!a) return;
+    var del = e.target.closest('button[data-hdel]');
+    if (del) { a.hob.splice(+del.dataset.hdel, 1); renderAlloc(); return; }
+    if (e.target.closest('#hobAdd')) {
+      a.hob.push({ sel: $('hobSel').value, spec: $('hobSpec').value, pts: 0 });
+      $('hobSpec').value = '';
+      renderAlloc();
+    }
+  });
+  $('allocConfirm').addEventListener('click', function () {
+    if (!state || !state.alloc || $('allocConfirm').disabled) return;
+    state.skills = finalSkills();
+    allocEl.hidden = true; sumEl.hidden = false;
+    renderSummary();
+    Room.sendSheet();
+    sumEl.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest' });
+  });
+  $('allocReopen').addEventListener('click', function () {
+    if (!state || !state.alloc) return;
+    state.skills = null;
+    sumEl.hidden = true; allocEl.hidden = false;
+    renderAlloc();
+    Room.sendSheet();
+  });
+  function finalSkills() {
+    var v = state.v, t = totals(), a = state.alloc, out = [], seen = {};
+    SKILLS.forEach(function (x) {
+      var n = x[0];
+      if (isRoot(n) && !(n in t)) return;
+      var b = baseOf(n, v), val = (n in t) ? t[n] : b;
+      out.push({ n: n, v: val, p: val > b ? 1 : 0 });
+      seen[n] = 1;
+    });
+    Object.keys(t).forEach(function (n) {
+      if (seen[n]) return;
+      out.push({ n: n, v: t[n], p: t[n] > baseOf(n, v) ? 1 : 0 });
+    });
+    if (a.crPts > 0) out.push({ n: '재력', v: a.crPts, p: 1 });
+    return out.filter(function (x) { return x.v > 0; });
+  }
+  function renderSummary() {
+    var list = state.skills.slice().sort(function (x, y) { return y.p - x.p; });
+    $('skList').innerHTML = list.map(function (x) {
+      return '<span' + (x.p ? ' class="on"' : '') + '>' + esc(x.n) + ' ' + x.v + '</span>';
+    }).join('');
+  }
 
   /* ---------- 시트 생성 ---------- */
   async function makeSheet() {
@@ -1453,7 +1828,7 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     lock(true);
     state = null; curJob = null;
     fast = reduced; skipBtn.hidden = reduced;
-    $('concept').hidden = true; $('jobs').hidden = true;
+    $('concept').hidden = true; $('jobs').hidden = true; resetAlloc();
     detailEl.hidden = true; doneEl.hidden = true; showChips(true);
     chipsEl.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
     jobDd.className = ''; jobDd.textContent = JOB_DD_DEFAULT;
@@ -1513,6 +1888,7 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
       lines.push('직업 기능 점수는 선택한 직업에 따라 달라집니다.');
       if (shown.length) lines.push('추천 컨셉: ' + shown.map(function (it) { return it.o.n; }).join(', '));
     }
+    if (state.skills) lines.push('기능: ' + state.skills.filter(function (x) { return x.p; }).map(function (x) { return x.n + ' ' + x.v; }).join(', '));
     return lines.join('\n');
   }
   var toast = $('toast');
@@ -1571,12 +1947,29 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     }
     var dv = d.derived;
     if (!isInt(dv.mov, 0, 20) || !isInt(dv.hp, 0, 100) || !isInt(dv.mp, 0, 100) || !isInt(dv.san, 0, 300) || !isInt(dv.build, -5, 20) || !isInt(dv.hobby, 0, 1000)) return null;
-    var out = { stats: stats, derived: { mov: dv.mov, hp: dv.hp, mp: dv.mp, san: dv.san, build: dv.build, db: txt(dv.db, 8), hobby: dv.hobby }, job: null };
+    var out = { stats: stats, derived: { mov: dv.mov, hp: dv.hp, mp: dv.mp, san: dv.san, build: dv.build, db: txt(dv.db, 8), hobby: dv.hobby }, job: null, skills: null };
+    if (Array.isArray(d.skills)) {
+      if (d.skills.length > 90) return null;
+      var sk = [];
+      for (var q = 0; q < d.skills.length; q++) {
+        var x = d.skills[q], nm = x ? txt(x.n, 24) : '';
+        if (!x || !nm || !isInt(x.v, 1, 200)) return null;
+        sk.push({ n: nm, v: x.v, p: x.p ? 1 : 0 });
+      }
+      out.skills = sk;
+    }
     if (d.job) {
       if (!isInt(d.job.pts, 0, 5000)) return null;
       out.job = { n: txt(d.job.n, 12), pts: d.job.pts, text: txt(d.job.text, 40), cr: txt(d.job.cr, 10) };
     }
     return out;
+  }
+
+  function cleanReq(d) {
+    if (!d || !isInt(d.value, 1, 200) || !DIFF[d.diff] || !BP_OK[d.bp]) return null;
+    var sk = txt(d.skill, 24), rid = txt(d.rid, 12);
+    if (!sk || !rid) return null;
+    return { rid: rid, skill: sk, value: d.value, diff: d.diff, bp: d.bp };
   }
 
   var Room = (function () {
@@ -1611,10 +2004,11 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     function renderPlayers() {
       playersEl.innerHTML = Object.keys(players).map(function (id) {
         return '<li><span>' + esc(players[id]) + '</span>' +
-          (id === 'HOST' ? '<span class="tag">방장</span>' : '') +
+          '<span class="tag">' + (id === 'HOST' ? '수호자' : '플레이어') + '</span>' +
           (id === myId ? '<span class="tag">나</span>' : '') + '</li>';
       }).join('');
       renderCards();
+      renderKeeper();
     }
     function renderCards() {
       var html = '';
@@ -1630,17 +2024,18 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     }
     function enterLive() {
       lobby.hidden = true; live.hidden = false;
+      document.body.classList.toggle('keeper', role === 'host');
       $('roomCode').textContent = code;
       feedEl.innerHTML = '';
       renderPlayers();
       setMsg('');
-      feedLine('방에 입장했어요.', 'sys');
+      feedLine(role === 'host' ? '수호자로 방을 만들었어요. 플레이어들이 시트를 만들면 여기서 판정을 요청할 수 있어요.' : '플레이어로 입장했어요. 시트를 만들고 수호자의 판정 요청을 기다리세요.', 'sys');
       setBusyUi(false);
     }
     function reset(text) {
       try { if (peer) peer.destroy(); } catch (e) {}
       peer = null; role = null; open = false; hostConn = null; conns = {}; players = {}; sheets = {}; myId = ''; code = '';
-      live.hidden = true; lobby.hidden = false;
+      live.hidden = true; lobby.hidden = false; document.body.classList.remove('keeper');
       setMsg(text || '', true);
       setBusyUi(false);
     }
@@ -1667,11 +2062,11 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
       if (!state) return;
       var v = state.v;
       var payload = { t: 'sheet', stats: {}, derived: { mov: state.mov, hp: state.hp, mp: state.mp, san: v.정신, build: state.bt[1], db: state.bt[2], hobby: v.지능 * 2 },
-        job: state.job ? { n: state.job.o.n, pts: state.job.pts, text: state.job.text, cr: state.job.o.cr.replace('–', '~') } : null };
+        job: state.job ? { n: state.job.o.n, pts: state.job.pts, text: state.job.text, cr: state.job.o.cr.replace('–', '~') } : null,
+        skills: state.skills || null };
       STAT_KEYS.forEach(function (k) { payload.stats[k] = v[k]; });
       lastSheet = payload;
-      if (!open) return;
-      if (role === 'host') { sheets.HOST = cleanSheet(payload); }
+      if (!open || role === 'host') return;
       send(JSON.parse(JSON.stringify(payload)));
     }
 
@@ -1710,6 +2105,7 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
         var m2 = JSON.parse(JSON.stringify(sh)); m2.t = 'sheet'; m2.from = id; m2.name = players[id];
         relay(m2, id);
         renderCards();
+        renderKeeper();
       }
     }
     function dropConn(conn) {
@@ -1739,7 +2135,6 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
           });
           p.on('disconnected', function () { try { p.reconnect(); } catch (e) {} });
           enterLive();
-          if (lastSheet) sendSheet();
         });
         p.on('error', function (e) {
           if (opened) { feedLine('연결 오류가 있었어요.', 'sys'); return; }
@@ -1772,6 +2167,7 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
         sheets[txt(d.from, 80)] = sh;
         renderCards();
       }
+      else if (d.t === 'req') { var rq = cleanReq(d); if (rq) showRequest(rq); }
       else if (d.t === 'sys') feedLine(esc(txt(d.text, 60)), 'sys');
       else if (d.t === 'full') leave('방이 가득 찼어요. 최대 8명까지 들어올 수 있어요.');
       else if (d.t === 'closed') leave('방장이 방을 닫았어요.');
@@ -1821,10 +2217,62 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
       if (wait) setTimeout(function () { try { p.destroy(); } catch (e) {} }, wait);
       else try { p.destroy(); } catch (e) {}
       peer = null; role = null; open = false; hostConn = null; conns = {}; players = {}; sheets = {}; myId = ''; code = '';
-      live.hidden = true; lobby.hidden = false;
+      live.hidden = true; lobby.hidden = false; document.body.classList.remove('keeper');
       setMsg(text || '', true);
       setBusyUi(false);
     }
+
+
+    /* ----- 수호자 화면 ----- */
+    var kSel = null;
+    function statButtons(sh) {
+      var st = sh.stats;
+      return [['근력', st.근력], ['건강', st.건강], ['크기', st.크기], ['민첩', st.민첩], ['외모', st.외모],
+              ['지능(아이디어)', st.지능], ['교육(지식)', st.교육], ['정신(의지)', st.정신], ['행운', st.운], ['이성', sh.derived.san]];
+    }
+    function btnHTML(n, v, on) {
+      return '<button type="button" data-n="' + esc(n) + '" data-v="' + v + '"' + (on ? ' class="on"' : '') + '>' + esc(n) + '<b>' + v + '</b></button>';
+    }
+    function renderKeeper() {
+      if (role !== 'host') return;
+      var ids = Object.keys(players).filter(function (id) { return id !== 'HOST'; });
+      if (ids.indexOf(kSel) < 0) kSel = ids[0] || null;
+      $('kPlayers').innerHTML = ids.length ? ids.map(function (id) {
+        return '<button type="button" data-pid="' + esc(id) + '" aria-pressed="' + (id === kSel) + '">' + esc(players[id]) + (sheets[id] ? '' : ' (시트 없음)') + '</button>';
+      }).join('') : '<p class="note" style="margin:0">플레이어가 입장하면 여기에 나타나요.</p>';
+      var box = $('kSheet');
+      if (!kSel) { box.innerHTML = ''; return; }
+      var sh = sheets[kSel];
+      if (!sh) { box.innerHTML = '<p class="lead" style="margin-top:12px">' + esc(players[kSel]) + '님은 아직 시트를 완성하지 않았어요.</p>'; return; }
+      var f = $('kFilter').value.trim();
+      function match(n) { return !f || n.indexOf(f) >= 0; }
+      var html = '<div class="kgroup"><h4>능력치 판정</h4><div class="sk-btns">' +
+        statButtons(sh).filter(function (x) { return match(x[0]); }).map(function (x) { return btnHTML(x[0], x[1], false); }).join('') + '</div></div>';
+      if (sh.skills) {
+        var mine = sh.skills.filter(function (x) { return x.p && match(x.n); }), rest = sh.skills.filter(function (x) { return !x.p && match(x.n); });
+        if (mine.length) html += '<div class="kgroup"><h4>배분한 기능</h4><div class="sk-btns">' + mine.map(function (x) { return btnHTML(x.n, x.v, true); }).join('') + '</div></div>';
+        if (rest.length) html += '<div class="kgroup"><h4>그 밖의 기능</h4><div class="sk-btns">' + rest.map(function (x) { return btnHTML(x.n, x.v, false); }).join('') + '</div></div>';
+      } else html += '<p class="note">이 플레이어는 아직 기능 점수를 배분하지 않았어요. 능력치 판정은 요청할 수 있어요.</p>';
+      box.innerHTML = html;
+    }
+    function request(pid, name, value, btn) {
+      var c = conns[pid];
+      if (!c || !c.open || !players[pid]) { flash('그 플레이어와 연결되어 있지 않아요.'); return; }
+      var diff = $('kDiff').value, bp = $('kBp').value;
+      var rid = Math.random().toString(36).slice(2, 10);
+      try { c.send({ t: 'req', rid: rid, skill: name, value: value, diff: diff, bp: bp }); } catch (e) { flash('요청을 보내지 못했어요.'); return; }
+      feedLine('<b>' + esc(players[pid]) + '</b>에게 ' + esc(name) + ' 판정 요청 (' + DIFF[diff].name + (bp === '0' ? '' : ', ' + (bp[0] === 'b' ? '보너스' : '페널티') + ' ' + bp[1]) + ')', 'sys');
+      if (btn) { btn.classList.add('sent'); setTimeout(function () { btn.classList.remove('sent'); }, 900); }
+    }
+    $('kPlayers').addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-pid]');
+      if (b) { kSel = b.dataset.pid; renderKeeper(); }
+    });
+    $('kFilter').addEventListener('input', renderKeeper);
+    $('kSheet').addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-n]');
+      if (b && kSel) request(kSel, b.dataset.n, parseInt(b.dataset.v, 10), b);
+    });
 
     createBtn.addEventListener('click', create);
     joinBtn.addEventListener('click', function () { join(codeInp.value); });

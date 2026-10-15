@@ -249,6 +249,15 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
 .sk-btns button.sent { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .sk-btns button b { font-family: var(--num); font-weight: 400; font-size: 16px; margin-left: 5px; }
 
+.modal { position: fixed; inset: 0; z-index: 30; background: rgba(5, 12, 12, .55); display: grid; place-items: center; padding: 20px; }
+.modal[hidden] { display: none; }
+.modal-box { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 24px; max-width: 420px; width: 100%; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
+.modal-box h3 { margin: 0 0 8px; font-size: 20px; font-weight: 800; }
+.modal-box p { margin: 0 0 18px; color: var(--muted); font-size: 15px; line-height: 1.7; }
+.modal-box .jd-actions { margin-top: 0; justify-content: flex-end; }
+.players .link-btn { margin-left: auto; font-size: 13px; padding: 0 12px; }
+.section-head .tag { margin-left: 8px; }
+.section-head .spacer { flex: 1; }
 .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); background: var(--ink); color: var(--bg); padding: 8px 18px; border-radius: 999px; font-size: 14px; opacity: 0; pointer-events: none; transition: .3s; z-index: 10; }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
 
@@ -284,7 +293,6 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
         <div><div style="font-size:13px;color:var(--muted)">방 코드</div><div class="room-code" id="roomCode">-----</div></div>
         <button class="btn ghost" id="copyCode" type="button">코드 복사</button>
         <span class="grow"></span>
-        <button class="btn ghost" id="transferHost" type="button" hidden>방장·수호자 넘기기</button>
         <button class="btn ghost" id="leaveRoom" type="button">방 나가기</button>
       </div>
       <div class="room-cols">
@@ -407,7 +415,7 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
       </section>
 
       <section class="section" id="skillsum" hidden aria-labelledby="sumTitle">
-        <div class="section-head"><h3 id="sumTitle">완성된 기능</h3><button class="btn ghost" id="allocReopen" type="button">배분 다시 하기</button></div>
+        <div class="section-head"><h3 id="sumTitle">완성된 기능</h3><span class="tag" id="lockTag" hidden>확정됨</span><span class="spacer"></span><button class="btn ghost" id="allocReopen" type="button">배분 다시 하기</button><button class="btn ghost" id="resetSheet" type="button" hidden>처음부터 다시 만들기</button></div>
         <p class="lead">굵게 표시된 기능이 점수를 배분한 기능이에요. 수호자가 이 기능을 누르면 판정 요청이 옵니다.</p>
         <div class="sk-list" id="skList"></div>
       </section>
@@ -431,6 +439,13 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
   </main>
 </div>
 <div class="toast" id="toast" role="status">복사했습니다</div>
+<div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal-box">
+    <h3 id="modalTitle"></h3>
+    <p id="modalText"></p>
+    <div class="jd-actions"><button class="btn ghost" id="modalNo" type="button"></button><button class="btn" id="modalYes" type="button"></button></div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
@@ -1009,11 +1024,29 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
   /* =====================================================
      잠금
   ===================================================== */
+  function ask(title, text, yesLabel, noLabel) {
+    return new Promise(function (resolve) {
+      var m = $('modal'), yes = $('modalYes'), no = $('modalNo');
+      $('modalTitle').textContent = title; $('modalText').textContent = text;
+      yes.textContent = yesLabel || '확인'; no.textContent = noLabel || '취소';
+      m.hidden = false; no.focus();
+      function done(v) {
+        m.hidden = true; yes.onclick = null; no.onclick = null; m.onclick = null;
+        document.removeEventListener('keydown', onKey);
+        resolve(v);
+      }
+      function onKey(e) { if (e.key === 'Escape') done(false); }
+      yes.onclick = function () { done(true); };
+      no.onclick = function () { done(false); };
+      m.onclick = function (e) { if (e.target === m) done(false); };
+      document.addEventListener('keydown', onKey);
+    });
+  }
   var rollBtn = $('rollBtn'), sheetBtn = $('sheetBtn'), copyBtn = $('copyBtn'), moreBtn = $('moreBtn');
   var state = null;
   function lock(b) {
     busy = b;
-    rollBtn.disabled = b; sheetBtn.disabled = b; moreBtn.disabled = b;
+    rollBtn.disabled = b; sheetBtn.disabled = b || !!(state && state.locked); moreBtn.disabled = b;
     copyBtn.disabled = b || !state;
     document.querySelectorAll('#quick button').forEach(function (x) { x.disabled = b; });
   }
@@ -1507,10 +1540,10 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
       setTimeout(function () { el.classList.add('in'); }, reduced ? 0 : 120 + i * 180);
     });
   }
-  moreBtn.addEventListener('click', function () { if (busy || !state || state.locked) return; page++; renderConcepts(); });
+  moreBtn.addEventListener('click', function () { if (busy || !state) return; page++; renderConcepts(); });
   $('conceptList').addEventListener('click', function (e) {
     var b = e.target.closest('button[data-job]');
-    if (!b || !state || state.locked) return;
+    if (!b || !state) return;
     openJob(b.dataset.job);
     $('jobs').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
   });
@@ -1519,25 +1552,17 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
   var chipsEl = $('jobChips'), detailEl = $('jobDetail'), doneEl = $('jobDone'), helpEl = $('jobsHelp'), jobDd = $('jobDd');
   var JOB_DD_DEFAULT = "아래 '직업 선택'에서 직업을 확정하면 계산해 드려요.";
   var curJob = null, curAlt = 0;
-  var SHEET_SAVE_KEY = 'coc_sheet_v1';
-  function persistSheet() {
-    try {
-      if (!state) { localStorage.removeItem(SHEET_SAVE_KEY); return; }
-      localStorage.setItem(SHEET_SAVE_KEY, JSON.stringify({ v: state.v, job: state.job ? state.job.o.n : null,
-        alloc: state.alloc ? { slots: state.alloc.slots.map(function (s) { return { pick:s.pick, spec:s.spec, pts:s.pts }; }), crPts:state.alloc.crPts, hob:state.alloc.hob, skills:state.skills } : null }));
-    } catch (e) {}
-  }
 
   chipsEl.innerHTML = OCC.map(function (o) {
     return '<button type="button" data-job="' + o.n + '" aria-pressed="false">' + o.n + '</button>';
   }).join('');
   chipsEl.addEventListener('click', function (e) {
     var b = e.target.closest('button[data-job]');
-    if (b && !(state && state.locked)) openJob(b.dataset.job);
+    if (b) openJob(b.dataset.job);
   });
 
   function openJob(name) {
-    if (!state || state.locked) return;
+    if (!state) return;
     curJob = OCCMAP[name];
     curAlt = bestAlt(curJob, state.v);
     showChips(true);
@@ -1580,7 +1605,6 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     if (b.dataset.act === 'confirm') confirmJob();
   });
   function confirmJob() {
-    if (state && state.locked) return;
     var o = curJob, c = calc(o, state.v, curAlt);
     state.job = { o: o, pts: c.pts, text: c.short };
     detailEl.hidden = true; showChips(false);
@@ -1593,7 +1617,6 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     Room.sendSheet();
   }
   doneEl.addEventListener('click', function (e) {
-    if (state && state.locked) return;
     var b = e.target.closest('button[data-act="change"]');
     if (!b) return;
     state.job = null; curJob = null;
@@ -1601,6 +1624,7 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     chipsEl.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
     resetAlloc();
     jobDd.className = ''; jobDd.textContent = JOB_DD_DEFAULT;
+    saveSheetSoon();
     Room.sendSheet();
   });
 
@@ -1659,13 +1683,16 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
   function hobName(h) { return withSpec(h.sel, h.spec); }
 
   var allocEl = $('alloc'), sumEl = $('skillsum');
-  function startAlloc() {
+  function newAlloc() {
     var j = state.job.o, cr = j.cr.split('–');
-    state.alloc = {
+    return {
       slots: slotsFor(j).map(function (d) { return { d: d, pick: d.fixed || null, spec: '', pts: 0 }; }),
       crMin: +cr[0], crMax: +cr[1], crPts: 0, hob: [],
       occPool: state.job.pts, hobPool: state.v.지능 * 2
     };
+  }
+  function startAlloc() {
+    state.alloc = newAlloc();
     state.skills = null;
     allocEl.hidden = false; sumEl.hidden = true;
     renderAlloc();
@@ -1727,7 +1754,6 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
       sel.innerHTML = ALLNAMES.map(function (n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('');
     }
     $('hobSpec').hidden = !isRoot(sel.value);
-    allocEl.querySelectorAll('input,select,button').forEach(function (el) { el.disabled = !!state.locked; });
     refreshAlloc();
   }
   function refreshAlloc() {
@@ -1762,7 +1788,7 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     m.className = 'alloc-msg' + (block.length ? ' bad' : '');
     m.textContent = block.length ? block[0] : (note.join(' ') || '점수를 모두 배분했어요. 확정해도 좋아요.');
     $('allocConfirm').disabled = block.length > 0;
-    persistSheet();
+    saveSheetSoon();
   }
   allocEl.addEventListener('input', function (e) {
     var el = e.target, a = state && state.alloc;
@@ -1788,23 +1814,28 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
   });
   allocEl.addEventListener('click', function (e) {
     var a = state && state.alloc;
-    if (!a || state.locked) return;
+    if (!a) return;
     var del = e.target.closest('button[data-hdel]');
-    if (del) { if (state.locked) return; a.hob.splice(+del.dataset.hdel, 1); renderAlloc(); return; }
+    if (del) { a.hob.splice(+del.dataset.hdel, 1); renderAlloc(); return; }
     if (e.target.closest('#hobAdd')) {
       a.hob.push({ sel: $('hobSel').value, spec: $('hobSpec').value, pts: 0 });
       $('hobSpec').value = '';
       renderAlloc();
     }
   });
-  $('allocConfirm').addEventListener('click', function () {
-    if (!state || !state.alloc || state.locked || $('allocConfirm').disabled) return;
-    if (!window.confirm('시트지를 확정할까요? 확정한 뒤에는 능력치 재굴림, 직업 변경, 점수 배분을 수정할 수 없습니다.')) return;
+  $('allocConfirm').addEventListener('click', async function () {
+    if (!state || !state.alloc || $('allocConfirm').disabled) return;
+    var ok = await ask('시트를 확정할까요?',
+      '확정하면 시트를 다시 굴리거나 직업, 기능 점수를 바꿀 수 없어요. 능력치와 직업, 직업 기능 점수, 관심 기능 점수를 모두 확인하셨나요?',
+      '확정하기', '돌아가기');
+    if (!ok || !state || !state.alloc) return;
     state.skills = finalSkills();
-    state.locked = true; persistSheet();
+    state.locked = true;
     allocEl.hidden = true; sumEl.hidden = false;
     renderSummary();
-    sheetBtn.disabled = true; sheetBtn.textContent = '시트지 확정됨';
+    applyLockUi();
+    saveSheet();
+    lock(false);
     Room.sendSheet();
     sumEl.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest' });
   });
@@ -1813,8 +1844,31 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     state.skills = null;
     sumEl.hidden = true; allocEl.hidden = false;
     renderAlloc();
+    saveSheetSoon();
     Room.sendSheet();
   });
+  $('resetSheet').addEventListener('click', async function () {
+    if (Room.active() || !state) return;
+    var ok = await ask('처음부터 다시 만들까요?', '확정한 시트가 지워지고 새로 만들 수 있어요. 방에 들어가 있지 않을 때만 할 수 있습니다.', '지우고 새로 만들기', '취소');
+    if (ok) clearSheetAll();
+  });
+  function applyLockUi() {
+    var lk = !!(state && state.locked);
+    $('lockTag').hidden = !lk;
+    $('allocReopen').hidden = lk;
+    refreshLockUi();
+    if (!lk) return;
+    $('concept').hidden = true;
+    allocEl.hidden = true; sumEl.hidden = false;
+    detailEl.hidden = true; showChips(false);
+    doneEl.hidden = false;
+    doneEl.querySelectorAll('button').forEach(function (b) { b.hidden = true; });
+    sheetBtn.textContent = '시트 확정됨';
+    statusEl.textContent = '시트가 확정되었어요. 이제 수정할 수 없습니다.';
+  }
+  function refreshLockUi() {
+    $('resetSheet').hidden = !(state && state.locked && !Room.active());
+  }
   function finalSkills() {
     var v = state.v, t = totals(), a = state.alloc, out = [], seen = {};
     SKILLS.forEach(function (x) {
@@ -1838,9 +1892,114 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     }).join('');
   }
 
+  /* ---------- 저장 / 복원 ---------- */
+  var SHEET_KEY = 'coc_sheet_v1', saveT = 0;
+  function saveSheetSoon() { clearTimeout(saveT); saveT = setTimeout(saveSheet, 250); }
+  function saveSheet() {
+    try {
+      if (!state) { localStorage.removeItem(SHEET_KEY); return; }
+      var a = state.alloc;
+      localStorage.setItem(SHEET_KEY, JSON.stringify({
+        v: state.v, mov: state.mov, hp: state.hp, mp: state.mp, bt: state.bt,
+        job: state.job ? { n: state.job.o.n, pts: state.job.pts, text: state.job.text } : null,
+        alloc: a ? { crPts: a.crPts, picks: a.slots.map(function (x) { return { pick: x.pick, spec: x.spec, pts: x.pts }; }), hob: a.hob } : null,
+        skills: state.skills || null, locked: !!state.locked
+      }));
+    } catch (e) {}
+  }
+  function showJobDone() {
+    var j = state.job, o = j.o;
+    detailEl.hidden = true; showChips(false);
+    doneEl.hidden = false;
+    doneEl.innerHTML = '<div>확정한 직업 <b>' + esc(o.n) + '</b>, 직업 기능 점수 <b>' + j.pts + '</b> (' + esc(j.text) + '), 재력 ' + o.cr.replace('–', '~') + '</div>' +
+      '<button class="btn ghost" type="button" data-act="change">직업 바꾸기</button>';
+    jobDd.className = 'set';
+    jobDd.innerHTML = '<span class="n">' + j.pts + '</span> ' + esc(o.n) + ', ' + esc(j.text);
+  }
+  function restoreSheet() {
+    var d = null;
+    try { d = JSON.parse(localStorage.getItem(SHEET_KEY) || 'null'); } catch (e) { d = null; }
+    if (!d || !d.v || !d.bt) return;
+    for (var i = 0; i < DEFS.length; i++) if (!isInt(d.v[DEFS[i].k], 0, 300)) return;
+    if (!isInt(d.mov, 0, 20) || !isInt(d.hp, 0, 100) || !isInt(d.mp, 0, 100) || !Array.isArray(d.bt)) return;
+    state = { v: d.v, mov: d.mov, hp: d.hp, mp: d.mp, bt: d.bt, job: null, alloc: null, skills: null, locked: false };
+    DEFS.forEach(function (def) {
+      var r = rows[def.k], val = d.v[def.k];
+      r.val.textContent = val; setFill(r, val); r.fill.setAttribute('data-tier', tier(val));
+    });
+    var v = d.v, bt = d.bt;
+    [['mov', d.mov], ['hp', d.hp], ['mp', d.mp], ['san', v.정신], ['build', bt[1]], ['db', bt[2]], ['hobby', v.지능 * 2]].forEach(function (x) {
+      var el = document.querySelector('[data-d="' + x[0] + '"]');
+      el.querySelector('dd').textContent = x[1]; el.classList.add('show');
+    });
+    document.querySelector('[data-d="job"]').classList.add('show');
+    ranked = rankConcepts(v); page = 0;
+    $('conceptSummary').textContent = summarize(v, d.hp);
+    $('concept').hidden = false; renderConcepts();
+    $('jobs').hidden = false;
+    sheetBtn.textContent = '다시 굴리기';
+    statusEl.textContent = '이전에 만들던 시트를 불러왔어요.';
+    var o = d.job && OCCMAP[d.job.n];
+    if (o && isInt(d.job.pts, 0, 5000)) {
+      state.job = { o: o, pts: d.job.pts, text: txt(d.job.text, 40) };
+      showJobDone();
+      state.alloc = newAlloc();
+      var al = d.alloc;
+      if (al && Array.isArray(al.picks)) {
+        al.picks.forEach(function (pk, k) {
+          var sl = state.alloc.slots[k];
+          if (!sl || !pk) return;
+          if (sl.d.fixed) sl.spec = txt(pk.spec, 10);
+          else if (typeof pk.pick === 'string' && (sl.d.any ? ALLNAMES.indexOf(pk.pick) >= 0 : sl.d.opts.indexOf(pk.pick) >= 0)) {
+            sl.pick = pk.pick; sl.spec = txt(pk.spec, 10);
+          }
+          sl.pts = isInt(pk.pts, 0, 99) ? pk.pts : 0;
+        });
+        if (isInt(al.crPts, 0, 99)) state.alloc.crPts = al.crPts;
+        state.alloc.hob = (Array.isArray(al.hob) ? al.hob : []).filter(function (h) {
+          return h && typeof h.sel === 'string' && ALLNAMES.indexOf(h.sel) >= 0 && isInt(h.pts, 0, 99);
+        }).map(function (h) { return { sel: h.sel, spec: txt(h.spec, 10), pts: h.pts }; });
+      }
+      var sk = d.skills;
+      var skOk = Array.isArray(sk) && sk.length > 0 && sk.length < 120 && sk.every(function (x) { return x && typeof x.n === 'string' && isInt(x.v, 1, 200); });
+      if (skOk) {
+        state.skills = sk.map(function (x) { return { n: txt(x.n, 24), v: x.v, p: x.p ? 1 : 0 }; });
+        state.locked = d.locked === true;
+        allocEl.hidden = true; sumEl.hidden = false; renderSummary();
+      } else {
+        allocEl.hidden = false; sumEl.hidden = true; renderAlloc();
+      }
+    }
+    applyLockUi();
+    lock(false);
+  }
+  function clearSheetAll() {
+    state = null; curJob = null;
+    try { localStorage.removeItem(SHEET_KEY); } catch (e) {}
+    resetAlloc();
+    $('concept').hidden = true; $('jobs').hidden = true;
+    detailEl.hidden = true; doneEl.hidden = true; showChips(true);
+    chipsEl.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
+    jobDd.className = ''; jobDd.textContent = JOB_DD_DEFAULT;
+    DEFS.forEach(function (d) {
+      var r = rows[d.k];
+      r.val.textContent = '—'; r.fill.style.width = '0'; r.fill.removeAttribute('data-tier');
+    });
+    document.querySelectorAll('#derived > div').forEach(function (el) {
+      el.classList.remove('show');
+      if (el.dataset.d !== 'job') el.querySelector('dd').textContent = '—';
+    });
+    $('lockTag').hidden = true; $('allocReopen').hidden = false; $('resetSheet').hidden = true;
+    sheetBtn.textContent = '시트지 만들기';
+    statusEl.textContent = '능력치 9개를 차례로 굴립니다.';
+    sheetLabel.textContent = '버튼을 누르면 이 위에서 능력치 주사위가 굴러갑니다.';
+    sheetTray.place([{ sides: 6 }, { sides: 6 }, { sides: 6 }]);
+    lock(false);
+  }
+
   /* ---------- 시트 생성 ---------- */
   async function makeSheet() {
-    if (busy) return;
+    if (busy || (state && state.locked)) return;
     lock(true);
     state = null; curJob = null;
     fast = reduced; skipBtn.hidden = reduced;
@@ -1865,7 +2024,6 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     var mov = (v.근력 > v.크기 && v.민첩 > v.크기) ? 9 : (v.근력 >= v.크기 || v.민첩 >= v.크기) ? 8 : 7;
     var hp = Math.floor((v.건강 + v.크기) / 10), mp = Math.floor(v.정신 / 5), bt = dbFor(v.근력 + v.크기);
     state = { v: v, mov: mov, hp: hp, mp: mp, bt: bt, job: null };
-    persistSheet();
 
     var derived = [['mov', mov], ['hp', hp], ['mp', mp], ['san', v.정신], ['build', bt[1]], ['db', bt[2]], ['hobby', v.지능 * 2]];
     for (var j = 0; j < derived.length; j++) {
@@ -1886,31 +2044,10 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     statusEl.textContent = '조사자가 완성되었습니다. 어울리는 컨셉을 참고해 직업을 골라 보세요.';
     sheetBtn.textContent = '다시 굴리기';
     lock(false);
+    saveSheet();
     Room.sendSheet();
   }
   sheetBtn.addEventListener('click', makeSheet);
-  function restoreSavedSheet() {
-    try {
-      var saved = JSON.parse(localStorage.getItem(SHEET_SAVE_KEY) || 'null');
-      if (!saved || !saved.v) return;
-      var v = saved.v, mov = (v.근력 > v.크기 && v.민첩 > v.크기) ? 9 : (v.근력 >= v.크기 || v.민첩 >= v.크기) ? 8 : 7;
-      state = { v:v, mov:mov, hp:Math.floor((v.건강+v.크기)/10), mp:Math.floor(v.정신/5), bt:dbFor(v.근력+v.크기), job:null, alloc:null, skills:null, locked:false };
-      DEFS.forEach(function (d) { rows[d.k].val.textContent=v[d.k]; rows[d.k].fill.style.width=Math.min(100,v[d.k]/99*100)+'%'; rows[d.k].fill.setAttribute('data-tier',tier(v[d.k])); });
-      [['mov',mov],['hp',state.hp],['mp',state.mp],['san',v.정신],['build',state.bt[1]],['db',state.bt[2]],['hobby',v.지능*2]].forEach(function (x) { var el=document.querySelector('[data-d="'+x[0]+'"]').querySelector('dd'); el.textContent=x[1]; el.parentNode.classList.add('show'); });
-      document.querySelector('[data-d="job"]').classList.add('show');
-      ranked=rankConcepts(v); page=0; $('conceptSummary').textContent=summarize(v,state.hp); $('concept').hidden=false; renderConcepts(); $('jobs').hidden=false;
-      if (saved.job && OCCMAP[saved.job]) { curJob=OCCMAP[saved.job]; curAlt=bestAlt(curJob,v); confirmJob(); }
-      if (saved.alloc && state.alloc) {
-        saved.alloc.slots.forEach(function (x,i) { if(state.alloc.slots[i]) { state.alloc.slots[i].pick=x.pick; state.alloc.slots[i].spec=x.spec; state.alloc.slots[i].pts=x.pts; } });
-        state.alloc.crPts=saved.alloc.crPts||0; state.alloc.hob=saved.alloc.hob||[]; renderAlloc();
-        if (saved.alloc.skills) { state.skills=saved.alloc.skills; state.locked=true; allocEl.hidden=true; sumEl.hidden=false; renderSummary(); sheetBtn.disabled=true; sheetBtn.textContent='시트지 확정됨'; }
-      }
-      copyBtn.disabled=false; sheetBtn.textContent=state.locked?'시트지 확정됨':'다시 굴리기'; sheetBtn.disabled=state.locked;
-      statusEl.textContent=state.locked?'확정된 조사자 시트를 불러왔습니다.':'저장된 조사자 시트를 불러왔습니다.';
-      Room.sendSheet();
-    } catch (e) {}
-  }
-  setInterval(persistSheet, 700);
 
   /* ---------- 복사 ---------- */
   function buildText() {
@@ -1986,7 +2123,7 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     }
     var dv = d.derived;
     if (!isInt(dv.mov, 0, 20) || !isInt(dv.hp, 0, 100) || !isInt(dv.mp, 0, 100) || !isInt(dv.san, 0, 300) || !isInt(dv.build, -5, 20) || !isInt(dv.hobby, 0, 1000)) return null;
-    var out = { stats: stats, derived: { mov: dv.mov, hp: dv.hp, mp: dv.mp, san: dv.san, build: dv.build, db: txt(dv.db, 8), hobby: dv.hobby }, job: null, skills: null };
+    var out = { stats: stats, derived: { mov: dv.mov, hp: dv.hp, mp: dv.mp, san: dv.san, build: dv.build, db: txt(dv.db, 8), hobby: dv.hobby }, job: null, skills: null, locked: d.locked === true };
     if (Array.isArray(d.skills)) {
       if (d.skills.length > 90) return null;
       var sk = [];
@@ -2012,14 +2149,22 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
   }
 
   var Room = (function () {
-    var PREFIX = 'coc7-';
+    var PREFIX = 'coc7-', SLOT_MS = 12000, GRACE_MS = 6000;
     var peer = null, role = null, code = '', open = false, hostConn = null, myId = '';
-    var conns = {}, players = {}, sheets = {}, joining = null, reconnecting = false;
+    var conns = {}, players = {}, order = [], sheets = {}, pidMap = {}, hint = [];
+    var migrating = false, migTimer = 0, handoffNext = null;
     var lobby = $('roomLobby'), live = $('roomLive'), msgEl = $('roomMsg');
     var nameInp = $('myName'), codeInp = $('joinCode');
     var feedEl = $('feed'), playersEl = $('players'), cardsEl = $('pcards');
     var hasPeer = typeof window.Peer === 'function';
     var createBtn = $('createRoom'), joinBtn = $('joinRoom');
+    var pid = (function () {
+      try {
+        var p = sessionStorage.getItem('coc_pid');
+        if (!p) { p = Math.random().toString(36).slice(2, 12); sessionStorage.setItem('coc_pid', p); }
+        return p;
+      } catch (e) { return Math.random().toString(36).slice(2, 12); }
+    })();
 
     try { var saved = localStorage.getItem('coc_name'); if (saved) nameInp.value = saved; } catch (e) {}
 
@@ -2031,6 +2176,34 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     }
     function myName() { return players[myId] || cleanName(nameInp.value); }
     function setBusyUi(b) { createBtn.disabled = b; joinBtn.disabled = b; }
+    function orderIds() {
+      var seen = {}, out = [];
+      order.forEach(function (id) { if (players[id] && !seen[id]) { seen[id] = 1; out.push(id); } });
+      Object.keys(players).forEach(function (id) { if (!seen[id]) out.push(id); });
+      return out;
+    }
+    function addOrder(id) {
+      order = order.filter(function (x) { return x !== id; });
+      order.push(id);
+      if (hint.length) {
+        var rest = order.filter(function (x) { return x !== 'HOST'; });
+        rest.sort(function (x, y) {
+          var ix = hint.indexOf(x), iy = hint.indexOf(y);
+          return (ix < 0 ? 1e9 : ix) - (iy < 0 ? 1e9 : iy);
+        });
+        order = (order.indexOf('HOST') >= 0 ? ['HOST'] : []).concat(rest);
+      }
+    }
+
+    /* ----- 세션 저장 ----- */
+    function saveSession() {
+      try {
+        if (!open) { sessionStorage.removeItem('coc_room'); return; }
+        sessionStorage.setItem('coc_room', JSON.stringify({ code: code, role: role, name: myName(),
+          others: Math.max(0, Object.keys(players).length - 1), order: orderIds().filter(function (x) { return x !== 'HOST'; }), t: Date.now() }));
+      } catch (e) {}
+    }
+    function clearSession() { try { sessionStorage.removeItem('coc_room'); } catch (e) {} }
 
     /* ----- 화면 ----- */
     function feedLine(html, cls) {
@@ -2041,44 +2214,40 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
       while (feedEl.children.length > 40) feedEl.removeChild(feedEl.lastChild);
     }
     function renderPlayers() {
-      playersEl.innerHTML = Object.keys(players).map(function (id) {
+      playersEl.innerHTML = orderIds().map(function (id) {
         return '<li><span>' + esc(players[id]) + '</span>' +
           '<span class="tag">' + (id === 'HOST' ? '수호자' : '플레이어') + '</span>' +
-          (id === myId ? '<span class="tag">나</span>' : '') + '</li>';
+          (id === myId ? '<span class="tag">나</span>' : '') +
+          (role === 'host' && id !== 'HOST' ? '<button type="button" class="link-btn" data-xfer="' + esc(id) + '">수호자 넘기기</button>' : '') + '</li>';
       }).join('');
       renderCards();
       renderKeeper();
+      saveSession();
     }
     function renderCards() {
       var html = '';
       Object.keys(sheets).forEach(function (id) {
         if (id === myId || !players[id]) return;
-        var s = sheets[id], d = s.derived;
+        var sh = sheets[id], d = sh.derived;
         html += '<article class="pcard"><h4>' + esc(players[id]) + '</h4>' +
-          '<p>' + STAT_KEYS.map(function (k) { return k + ' ' + s.stats[k]; }).join(', ') + '</p>' +
+          '<p>' + STAT_KEYS.map(function (k) { return k + ' ' + sh.stats[k]; }).join(', ') + '</p>' +
           '<p>이동력 ' + d.mov + ', 체력 ' + d.hp + ', 마력 ' + d.mp + ', 이성 ' + d.san + ', 체구 ' + d.build + ', 피해 보너스 ' + esc(d.db) + '</p>' +
-          '<p class="job">' + (s.job ? '직업 ' + esc(s.job.n) + ', 직업 기능 점수 ' + s.job.pts : '직업 선택 중') + '</p></article>';
+          '<p class="job">' + (sh.job ? '직업 ' + esc(sh.job.n) + ', 직업 기능 점수 ' + sh.job.pts : '직업 선택 중') + (sh.locked ? ' (확정)' : '') + '</p></article>';
       });
       cardsEl.innerHTML = html;
     }
-    function enterLive() {
+    function enterLive(keep) {
       lobby.hidden = true; live.hidden = false;
       document.body.classList.toggle('keeper', role === 'host');
       $('roomCode').textContent = code;
-      feedEl.innerHTML = '';
+      if (!keep) feedEl.innerHTML = '';
       renderPlayers();
       setMsg('');
-      $('transferHost').hidden = role !== 'host';
-      feedLine(role === 'host' ? '수호자로 방을 만들었어요. 플레이어들이 시트를 만들면 여기서 판정을 요청할 수 있어요.' : '플레이어로 입장했어요. 시트를 만들고 수호자의 판정 요청을 기다리세요.', 'sys');
+      if (!keep) feedLine(role === 'host'
+        ? '수호자로 방을 만들었어요. 플레이어들이 시트를 만들면 여기서 판정을 요청할 수 있어요.'
+        : '플레이어로 입장했어요. 시트를 만들고 수호자의 판정 요청을 기다리세요.', 'sys');
       setBusyUi(false);
-    }
-    function reset(text) {
-      try { if (peer) peer.destroy(); } catch (e) {}
-      peer = null; role = null; open = false; hostConn = null; conns = {}; players = {}; sheets = {}; myId = ''; code = '';
-      live.hidden = true; lobby.hidden = false; document.body.classList.remove('keeper');
-      $('transferHost').hidden = true;
-      setMsg(text || '', true);
-      setBusyUi(false);
+      refreshLockUi();
     }
 
     /* ----- 전송 ----- */
@@ -2088,38 +2257,58 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
         try { if (conns[id].open) conns[id].send(msg); } catch (e) {}
       });
     }
-    function rosterList() { return Object.keys(players).map(function (id) { return { id: id, name: players[id] }; }); }
-    function broadcastRoster() {
-      relay({ t: 'roster', list: rosterList() }, null);
-      renderPlayers();
+    function rosterMsg() {
+      var ids = orderIds();
+      return { t: 'roster', list: ids.map(function (id) { return { id: id, name: players[id] }; }) };
     }
+    function broadcastRoster() { relay(rosterMsg(), null); renderPlayers(); }
     function send(msg) {
       if (!open) return;
       if (role === 'host') { msg.from = 'HOST'; msg.name = players.HOST; relay(msg, null); }
       else { try { hostConn.send(msg); } catch (e) {} }
     }
-    var lastSheet = null;
     function sendSheet() {
       if (!state) return;
       var v = state.v;
       var payload = { t: 'sheet', stats: {}, derived: { mov: state.mov, hp: state.hp, mp: state.mp, san: v.정신, build: state.bt[1], db: state.bt[2], hobby: v.지능 * 2 },
         job: state.job ? { n: state.job.o.n, pts: state.job.pts, text: state.job.text, cr: state.job.o.cr.replace('–', '~') } : null,
-        skills: state.skills || null };
+        skills: state.skills || null, locked: !!state.locked };
       STAT_KEYS.forEach(function (k) { payload.stats[k] = v[k]; });
-      lastSheet = payload;
       if (!open || role === 'host') return;
       send(JSON.parse(JSON.stringify(payload)));
     }
 
     /* ----- 방장 ----- */
+    function removePlayer(id, silent) {
+      var nm = players[id];
+      if (!nm) return;
+      var c = conns[id];
+      delete players[id]; delete conns[id]; delete sheets[id];
+      Object.keys(pidMap).forEach(function (k) { if (pidMap[k] === id) delete pidMap[k]; });
+      order = order.filter(function (x) { return x !== id; });
+      try { if (c) c.close(); } catch (e) {}
+      broadcastRoster();
+      if (!silent) {
+        relay({ t: 'sys', text: nm + '님이 나갔어요.' }, null);
+        feedLine(esc(nm) + '님이 나갔어요.', 'sys');
+      }
+    }
     function onHostData(conn, d) {
       if (!d || typeof d !== 'object') return;
       var id = conn.peer;
       if (d.t === 'hello') {
-        if (players[id] && conns[id] && conns[id].open) return;
-        if (Object.keys(players).length >= 8) { try { conn.send({ t: 'full' }); } catch (e) {} setTimeout(function () { try { conn.close(); } catch (e) {} }, 300); return; }
+        if (players[id]) return;
+        var pd = txt(d.pid, 16);
+        if (pd && pidMap[pd] && pidMap[pd] !== id) removePlayer(pidMap[pd], true);
+        if (Object.keys(players).length >= 8) {
+          try { conn.send({ t: 'full' }); } catch (e) {}
+          setTimeout(function () { try { conn.close(); } catch (e) {} }, 300);
+          return;
+        }
         conns[id] = conn;
-        players[id] = players[id] || cleanName(d.name);
+        players[id] = cleanName(d.name);
+        if (pd) pidMap[pd] = id;
+        addOrder(id);
         try { conn.send({ t: 'welcome', you: id }); } catch (e) {}
         broadcastRoster();
         Object.keys(sheets).forEach(function (sid) {
@@ -2151,37 +2340,47 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     }
     function dropConn(conn) {
       var id = conn.peer;
-      if (!players[id]) return;
-      var nm = players[id];
-      delete players[id]; delete conns[id]; delete sheets[id];
-      broadcastRoster();
-      relay({ t: 'sys', text: nm + '님이 나갔어요.' }, null);
-      feedLine(esc(nm) + '님이 나갔어요.', 'sys');
+      if (!players[id] || conns[id] !== conn) return;
+      removePlayer(id, false);
     }
-    function create(forcedCode) {
+    function attachHost(p) {
+      p.on('connection', function (conn) {
+        conn.on('data', function (d) { onHostData(conn, d); });
+        conn.on('close', function () { dropConn(conn); });
+        conn.on('error', function () { dropConn(conn); });
+      });
+      p.on('disconnected', function () { try { p.reconnect(); } catch (e) {} });
+    }
+    function startAsHost(p, c, name, h) {
+      peer = p; role = 'host'; code = c; myId = 'HOST'; players = { HOST: name }; order = ['HOST'];
+      sheets = {}; conns = {}; pidMap = {}; hint = h || []; open = true; migrating = false;
+      attachHost(p);
+      enterLive(false);
+    }
+    function create(opts) {
+      opts = opts || {};
       if (!hasPeer) { setMsg('멀티플레이 연결 도구를 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.'); return; }
-      var name = cleanName(nameInp.value);
+      var name = cleanName(opts.name || nameInp.value);
       try { localStorage.setItem('coc_name', name); } catch (e) {}
-      setBusyUi(true); setMsg('방을 만드는 중…', true);
+      setBusyUi(true); setMsg(opts.code ? '이전 방을 다시 여는 중…' : '방을 만드는 중…', true);
+      var deadline = Date.now() + (opts.retryMs || 0);
+      function reclaimFailed() {
+        if (opts.fallbackJoin) join(opts.code, { name: name, retryMs: 30000 });
+        else { clearSession(); setBusyUi(false); setMsg('이전 방을 다시 열지 못했어요.'); }
+      }
       (function attempt(n) {
-        var c = forcedCode || genCode(), p;
+        var c = opts.code || genCode(), p;
         try { p = new window.Peer(PREFIX + c); } catch (e) { setBusyUi(false); setMsg('연결을 시작하지 못했어요.'); return; }
         var opened = false;
-        p.on('open', function () {
-          opened = true; peer = p; role = 'host'; code = c; myId = 'HOST'; players = { HOST: name }; open = true;
-          try { localStorage.setItem('coc_room', JSON.stringify({ role:'host', code:c, name:name })); } catch(e) {}
-          p.on('connection', function (conn) {
-            conn.on('data', function (d) { onHostData(conn, d); });
-            conn.on('close', function () { dropConn(conn); });
-            conn.on('error', function () { dropConn(conn); });
-          });
-          p.on('disconnected', function () { try { p.reconnect(); } catch (e) {} });
-          enterLive();
-        });
+        p.on('open', function () { opened = true; startAsHost(p, c, name, opts.hint); });
         p.on('error', function (e) {
           if (opened) { feedLine('연결 오류가 있었어요.', 'sys'); return; }
           try { p.destroy(); } catch (x) {}
-          if (e && e.type === 'unavailable-id' && n < 5) attempt(n + 1);
+          if (e && e.type === 'unavailable-id') {
+            if (opts.code) { if (Date.now() < deadline) setTimeout(function () { attempt(n); }, 1000); else reclaimFailed(); return; }
+            if (n < 5) { attempt(n + 1); return; }
+          }
+          if (opts.code) reclaimFailed();
           else { setBusyUi(false); setMsg('서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 보세요.'); }
         });
       })(0);
@@ -2192,9 +2391,11 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
       if (!d || typeof d !== 'object') return;
       if (d.t === 'welcome') { myId = typeof d.you === 'string' ? d.you : myId; renderPlayers(); }
       else if (d.t === 'roster' && Array.isArray(d.list)) {
-        var np = {};
-        d.list.slice(0, 12).forEach(function (x) { if (x && typeof x.id === 'string') np[txt(x.id, 80)] = cleanName(x.name); });
-        players = np;
+        var np = {}, ord = [];
+        d.list.slice(0, 12).forEach(function (x) {
+          if (x && typeof x.id === 'string') { var k = txt(x.id, 80); np[k] = cleanName(x.name); ord.push(k); }
+        });
+        players = np; order = ord;
         Object.keys(sheets).forEach(function (id) { if (!players[id]) delete sheets[id]; });
         renderPlayers();
       }
@@ -2211,97 +2412,174 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
       }
       else if (d.t === 'req') { var rq = cleanReq(d); if (rq) showRequest(rq); }
       else if (d.t === 'sys') feedLine(esc(txt(d.text, 60)), 'sys');
+      else if (d.t === 'handoff') { handoffNext = typeof d.next === 'string' ? txt(d.next, 80) : null; feedLine('수호자 권한이 넘어가는 중이에요…', 'sys'); }
       else if (d.t === 'full') leave('방이 가득 찼어요. 최대 8명까지 들어올 수 있어요.');
-      else if (d.t === 'closed') leave('방장이 방을 닫았어요.');
-      else if (d.t === 'promote') takeOver(d);
-      else if (d.t === 'handoff') { reconnecting = true; feedLine('방장 권한을 넘기는 중이에요. 잠시 후 다시 연결합니다.', 'sys'); }
+      else if (d.t === 'closed') leave('방이 닫혔어요.');
     }
     function failJoin(text, p) {
-      if (joining) { clearTimeout(joining); joining = null; }
       try { if (p) p.destroy(); } catch (e) {}
       hostConn = null; setBusyUi(false); setMsg(text);
     }
-    function join(raw) {
+    function join(raw, opts) {
+      opts = opts || {};
       if (!hasPeer) { setMsg('멀티플레이 연결 도구를 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.'); return; }
       var c = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
       if (c.length !== 5) { setMsg('방 코드는 5자리예요.'); return; }
-      var name = cleanName(nameInp.value);
-      try { localStorage.setItem('coc_room', JSON.stringify({ role:'client', code:c, name:name })); } catch(e) {}
+      var name = cleanName(opts.name || nameInp.value);
       try { localStorage.setItem('coc_name', name); } catch (e) {}
-      setBusyUi(true); setMsg('방을 찾는 중…', true);
+      setBusyUi(true); setMsg(opts.retryMs ? '이전 방에 다시 연결하는 중…' : '방을 찾는 중…', true);
       var p;
       try { p = new window.Peer(); } catch (e) { failJoin('연결을 시작하지 못했어요.', null); return; }
-      var connected = false;
-      p.on('open', function (id) {
-        myId = id;
-        var conn = p.connect(PREFIX + c, { reliable: true });
+      var deadline = Date.now() + (opts.retryMs || 0), connected = false, inflight = false, tmr = null;
+      function retryOrFail(text) {
+        inflight = false;
+        if (connected) return;
+        if (Date.now() < deadline) setTimeout(attempt, 1500);
+        else { clearSession(); failJoin(text || '방을 찾지 못했어요. 코드를 다시 확인해 주세요.', p); }
+      }
+      function attempt() {
+        if (connected || inflight) return;
+        inflight = true;
+        var conn;
+        try { conn = p.connect(PREFIX + c, { reliable: true }); } catch (e) { retryOrFail(); return; }
         hostConn = conn;
-        joining = setTimeout(function () { failJoin('방을 찾지 못했어요. 코드를 다시 확인해 주세요.', p); }, 10000);
+        tmr = setTimeout(function () { if (!connected) { try { conn.close(); } catch (e) {} retryOrFail(); } }, 8000);
         conn.on('open', function () {
-          if (joining) { clearTimeout(joining); joining = null; }
-          connected = true; peer = p; role = 'client'; code = c; open = true;
-          players = {}; players[myId] = name;
-          conn.send({ t: 'hello', name: name });
-          enterLive();
-          if (lastSheet) sendSheet();
+          clearTimeout(tmr);
+          if (connected) return;
+          connected = true;
+          peer = p; role = 'client'; code = c; open = true; migrating = false;
+          players = {}; players[myId] = name; order = [myId];
+          conn.send({ t: 'hello', name: name, pid: pid });
+          enterLive(false);
+          sendSheet();
         });
         conn.on('data', onClientData);
-        conn.on('close', function () { if (open) { if (reconnecting) { reconnecting = false; setTimeout(function () { join(c); }, 650); } else leave('방장과 연결이 끊겼어요.'); } });
-        conn.on('error', function () { if (!connected) failJoin('방에 연결하지 못했어요.', p); });
-      });
-      p.on('error', function (e) {
-        if (connected) { feedLine('연결 오류가 있었어요.', 'sys'); return; }
-        if (e && e.type === 'peer-unavailable') failJoin('그 코드의 방이 없어요. 코드를 다시 확인해 주세요.', p);
-        else failJoin('서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 보세요.', p);
-      });
-    }
-    function leave(text, transferTo) {
-      try { localStorage.removeItem('coc_room'); } catch(e) {}
-      if (role === 'host') {
-        var ids = Object.keys(players).filter(function (id) { return id !== 'HOST'; });
-        if (ids.length) {
-          var target = transferTo && players[transferTo] ? transferTo : ids[0];
-          try { conns[target].send({ t:'promote', code:code, you:target, players:players, sheets:sheets }); } catch (e) {}
-          relay({ t:'handoff' }, target);
-          var oldPeer = peer; peer = null; role = null; open = false;
-          setTimeout(function () { try { oldPeer.destroy(); } catch (e) {} }, 350);
-          live.hidden = true; lobby.hidden = false; document.body.classList.remove('keeper'); $('transferHost').hidden = true;
-          setMsg('방장 권한과 수호자 역할을 다음 참가자에게 넘겼어요.', true); setBusyUi(false);
-          return;
-        }
-        relay({ t: 'closed' }, null);
+        conn.on('close', function () { clearTimeout(tmr); if (connected) onConnClose(conn); else retryOrFail(); });
+        conn.on('error', function () { clearTimeout(tmr); if (!connected) retryOrFail('방에 연결하지 못했어요.'); });
       }
-      var p = peer;
-      var wait = role === 'host' ? 250 : 0;
-      if (wait) setTimeout(function () { try { p.destroy(); } catch (e) {} }, wait);
-      else try { p.destroy(); } catch (e) {}
-      peer = null; role = null; open = false; hostConn = null; conns = {}; players = {}; sheets = {}; myId = ''; code = '';
+      p.on('open', function (id) { myId = id; attempt(); });
+      p.on('error', function (e) {
+        if (connected) { if (!(e && e.type === 'peer-unavailable')) feedLine('연결 오류가 있었어요.', 'sys'); return; }
+        clearTimeout(tmr);
+        if (e && e.type === 'peer-unavailable') retryOrFail('그 코드의 방이 없어요. 코드를 다시 확인해 주세요.');
+        else { clearSession(); failJoin('서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 보세요.', p); }
+      });
+    }
+
+    /* ----- 방장 교체 (자동 이양 / 새로고침 대기) ----- */
+    function onConnClose(conn) {
+      if (!open || migrating || conn !== hostConn) return;
+      var nx = handoffNext; handoffNext = null;
+      var ids = orderIds().filter(function (x) { return x !== 'HOST'; });
+      var cands = nx ? [nx].concat(ids.filter(function (x) { return x !== nx; })) : ids;
+      migrate(cands, nx ? '새 수호자에게 연결하는 중…' : '방장과 연결이 끊겼어요. 다시 연결하거나 새 방장을 정하는 중…', !!nx);
+    }
+    function becomeHost(p) {
+      clearTimeout(migTimer); migrating = false;
+      var name = myName(), oldOrder = orderIds().filter(function (x) { return x !== myId; });
+      try { if (peer && peer !== p) peer.destroy(); } catch (e) {}
+      startAsHost(p, code, name, oldOrder);
+      feedLine('이전 방장이 나가서 내가 새 방장이자 수호자가 되었어요.', 'sys');
+    }
+    function reconnected(conn) {
+      clearTimeout(migTimer); migrating = false;
+      hostConn = conn; role = 'client'; open = true;
+      conn.send({ t: 'hello', name: myName(), pid: pid });
+      feedLine('새 수호자(방장)에게 다시 연결했어요.', 'sys');
+      sendSheet();
+      saveSession();
+    }
+    function migrate(cands, msg, noGrace) {
+      if (migrating) return;
+      migrating = true; hostConn = null;
+      feedLine(msg, 'sys');
+      var t0 = Date.now(), grace = noGrace ? 0 : GRACE_MS, hosting = false, connecting = false, toggle = 0;
+      var pp = peer;
+      try { pp.on('error', function (e) { if (migrating && e && e.type === 'peer-unavailable') connecting = false; }); } catch (e) {}
+      function fail() { migrating = false; clearTimeout(migTimer); leave('방장을 찾지 못해 방에서 나왔어요.'); }
+      function tryHost() {
+        if (hosting) return;
+        hosting = true;
+        var p;
+        try { p = new window.Peer(PREFIX + code); } catch (e) { hosting = false; return; }
+        var ok = false;
+        p.on('open', function () {
+          ok = true;
+          if (!migrating) { try { p.destroy(); } catch (x) {} return; }
+          becomeHost(p);
+        });
+        p.on('error', function (e) {
+          if (ok) { feedLine('연결 오류가 있었어요.', 'sys'); return; }
+          try { p.destroy(); } catch (x) {}
+          hosting = false;
+        });
+      }
+      function tryConnect() {
+        if (connecting) return;
+        var cp = peer;
+        if (!cp) return;
+        if (cp.disconnected) { try { cp.reconnect(); } catch (e) {} }
+        connecting = true;
+        var conn, done = false, to;
+        try { conn = cp.connect(PREFIX + code, { reliable: true }); } catch (e) { connecting = false; return; }
+        to = setTimeout(function () { if (migrating && !done) { try { conn.close(); } catch (x) {} connecting = false; } }, 4000);
+        conn.on('open', function () {
+          clearTimeout(to);
+          if (!migrating || done) { try { conn.close(); } catch (x) {} return; }
+          done = true; reconnected(conn);
+        });
+        conn.on('data', onClientData);
+        conn.on('close', function () { clearTimeout(to); if (done) onConnClose(conn); else connecting = false; });
+        conn.on('error', function () { clearTimeout(to); connecting = false; });
+      }
+      function step() {
+        if (!migrating) return;
+        var el = Date.now() - t0;
+        if (el >= grace + Math.max(cands.length, 1) * SLOT_MS) { fail(); return; }
+        var idx = el < grace ? -1 : Math.floor((el - grace) / SLOT_MS);
+        if (idx >= 0 && cands[idx] === myId) { if (toggle++ % 2 === 0) tryHost(); else tryConnect(); }
+        else tryConnect();
+        migTimer = setTimeout(step, 1500);
+      }
+      step();
+    }
+    function doTransfer(nextId) {
+      if (role !== 'host' || !players[nextId]) return;
+      var name = myName(), oldPlayers = players;
+      var cands = [nextId].concat(orderIds().filter(function (x) { return x !== 'HOST' && x !== nextId; }));
+      relay({ t: 'handoff', next: nextId }, null);
+      var oldPeer = peer;
+      setTimeout(function () { try { oldPeer.destroy(); } catch (e) {} }, 300);
+      conns = {}; sheets = {}; pidMap = {};
+      var np;
+      try { np = new window.Peer(); } catch (e) { leave('수호자 권한을 넘기지 못했어요.'); return; }
+      np.on('open', function (id) {
+        myId = id; peer = np; role = 'client'; hostConn = null;
+        players = {};
+        cands.forEach(function (x) { players[x] = oldPlayers[x]; });
+        players[id] = name;
+        order = cands.concat([id]);
+        document.body.classList.remove('keeper');
+        renderPlayers();
+        refreshLockUi();
+        migrate(cands, '수호자 권한을 넘겼어요. 새 수호자에게 연결하는 중…', true);
+      });
+    }
+    function leave(text) {
+      var p = peer, wasHost = role === 'host', delay = 0;
+      if (wasHost) {
+        var nx = orderIds().filter(function (x) { return x !== 'HOST'; })[0];
+        relay(nx ? { t: 'handoff', next: nx } : { t: 'closed' }, null);
+        delay = 300;
+      }
+      open = false; migrating = false; clearTimeout(migTimer);
+      if (p) { if (delay) setTimeout(function () { try { p.destroy(); } catch (e) {} }, delay); else { try { p.destroy(); } catch (e) {} } }
+      peer = null; role = null; hostConn = null; conns = {}; players = {}; order = []; sheets = {}; pidMap = {}; myId = ''; code = ''; handoffNext = null;
+      clearSession();
       live.hidden = true; lobby.hidden = false; document.body.classList.remove('keeper');
-      setMsg(text || '', true);
-      setBusyUi(false);
+      setMsg(text || '', true); setBusyUi(false); refreshLockUi();
     }
-
-    function takeOver(d) {
-      if (!d || d.you !== myId) return;
-      var c = txt(d.code, 5), np = d.players || {}, ns = d.sheets || {}, ownName = cleanName(players[myId] || nameInp.value);
-      try { if (peer) peer.destroy(); } catch (e) {}
-      peer = null; hostConn = null; role = null; open = false; conns = {}; code = c;
-      var pmap = {}, smap = {};
-      Object.keys(np).forEach(function (id) { if (id === d.you) pmap.HOST = ownName; else if (id !== 'HOST') pmap[id] = np[id]; });
-      Object.keys(ns).forEach(function (id) { if (id === d.you) smap.HOST = ns[id]; else smap[id] = ns[id]; });
-      players = pmap; sheets = smap; myId = 'HOST';
-      setMsg('방장 권한을 이어받는 중…', true); setBusyUi(true);
-      try { localStorage.setItem('coc_room', JSON.stringify({ role:'host', code:c, name:ownName })); } catch(e) {}
-      setTimeout(function () {
-        var p; try { p = new window.Peer(PREFIX + c); } catch (e) { setMsg('방장 연결을 복구하지 못했어요.'); setBusyUi(false); return; }
-        var ready = false;
-        p.on('open', function () { ready = true; peer = p; role = 'host'; open = true; myId = 'HOST';
-          p.on('connection', function (conn) { conn.on('data', function (x) { onHostData(conn, x); }); conn.on('close', function () { dropConn(conn); }); conn.on('error', function () { dropConn(conn); }); });
-          p.on('disconnected', function () { try { p.reconnect(); } catch (e) {} }); enterLive(); feedLine('방장 권한과 수호자 역할을 이어받았어요.', 'sys'); });
-        p.on('error', function () { if (!ready) { try { p.destroy(); } catch (e) {} setTimeout(function () { takeOver(Object.assign({}, d, { you: myId })); }, 900); } });
-      }, 900);
-    }
-
 
     /* ----- 수호자 화면 ----- */
     var kSel = null;
@@ -2315,33 +2593,34 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
     }
     function renderKeeper() {
       if (role !== 'host') return;
-      var ids = Object.keys(players).filter(function (id) { return id !== 'HOST'; });
+      var ids = orderIds().filter(function (id) { return id !== 'HOST'; });
       if (ids.indexOf(kSel) < 0) kSel = ids[0] || null;
       $('kPlayers').innerHTML = ids.length ? ids.map(function (id) {
-        return '<button type="button" data-pid="' + esc(id) + '" aria-pressed="' + (id === kSel) + '">' + esc(players[id]) + (sheets[id] ? '' : ' (시트 없음)') + '</button>';
+        var sh = sheets[id], tagTxt = !sh ? ' (시트 없음)' : sh.locked ? '' : ' (작성 중)';
+        return '<button type="button" data-pid="' + esc(id) + '" aria-pressed="' + (id === kSel) + '">' + esc(players[id]) + tagTxt + '</button>';
       }).join('') : '<p class="note" style="margin:0">플레이어가 입장하면 여기에 나타나요.</p>';
       var box = $('kSheet');
       if (!kSel) { box.innerHTML = ''; return; }
-      var sh = sheets[kSel];
-      if (!sh) { box.innerHTML = '<p class="lead" style="margin-top:12px">' + esc(players[kSel]) + '님은 아직 시트를 완성하지 않았어요.</p>'; return; }
+      var sh2 = sheets[kSel];
+      if (!sh2) { box.innerHTML = '<p class="lead" style="margin-top:12px">' + esc(players[kSel]) + '님은 아직 시트를 완성하지 않았어요.</p>'; return; }
       var f = $('kFilter').value.trim();
       function match(n) { return !f || n.indexOf(f) >= 0; }
       var html = '<div class="kgroup"><h4>능력치 판정</h4><div class="sk-btns">' +
-        statButtons(sh).filter(function (x) { return match(x[0]); }).map(function (x) { return btnHTML(x[0], x[1], false); }).join('') + '</div></div>';
-      if (sh.skills) {
-        var mine = sh.skills.filter(function (x) { return x.p && match(x.n); }), rest = sh.skills.filter(function (x) { return !x.p && match(x.n); });
+        statButtons(sh2).filter(function (x) { return match(x[0]); }).map(function (x) { return btnHTML(x[0], x[1], false); }).join('') + '</div></div>';
+      if (sh2.skills) {
+        var mine = sh2.skills.filter(function (x) { return x.p && match(x.n); }), rest = sh2.skills.filter(function (x) { return !x.p && match(x.n); });
         if (mine.length) html += '<div class="kgroup"><h4>배분한 기능</h4><div class="sk-btns">' + mine.map(function (x) { return btnHTML(x.n, x.v, true); }).join('') + '</div></div>';
         if (rest.length) html += '<div class="kgroup"><h4>그 밖의 기능</h4><div class="sk-btns">' + rest.map(function (x) { return btnHTML(x.n, x.v, false); }).join('') + '</div></div>';
       } else html += '<p class="note">이 플레이어는 아직 기능 점수를 배분하지 않았어요. 능력치 판정은 요청할 수 있어요.</p>';
       box.innerHTML = html;
     }
-    function request(pid, name, value, btn) {
-      var c = conns[pid];
-      if (!c || !c.open || !players[pid]) { flash('그 플레이어와 연결되어 있지 않아요.'); return; }
+    function request(pid2, name, value, btn) {
+      var c = conns[pid2];
+      if (!c || !c.open || !players[pid2]) { flash('그 플레이어와 연결되어 있지 않아요.'); return; }
       var diff = $('kDiff').value, bp = $('kBp').value;
       var rid = Math.random().toString(36).slice(2, 10);
       try { c.send({ t: 'req', rid: rid, skill: name, value: value, diff: diff, bp: bp }); } catch (e) { flash('요청을 보내지 못했어요.'); return; }
-      feedLine('<b>' + esc(players[pid]) + '</b>에게 ' + esc(name) + ' 판정 요청 (' + DIFF[diff].name + (bp === '0' ? '' : ', ' + (bp[0] === 'b' ? '보너스' : '페널티') + ' ' + bp[1]) + ')', 'sys');
+      feedLine('<b>' + esc(players[pid2]) + '</b>에게 ' + esc(name) + ' 판정 요청 (' + DIFF[diff].name + (bp === '0' ? '' : ', ' + (bp[0] === 'b' ? '보너스' : '페널티') + ' ' + bp[1]) + ')', 'sys');
       if (btn) { btn.classList.add('sent'); setTimeout(function () { btn.classList.remove('sent'); }, 900); }
     }
     $('kPlayers').addEventListener('click', function (e) {
@@ -2354,42 +2633,56 @@ header p { margin: 0; color: var(--muted); max-width: 46ch; }
       if (b && kSel) request(kSel, b.dataset.n, parseInt(b.dataset.v, 10), b);
     });
 
-    createBtn.addEventListener('click', create);
+    /* ----- 버튼 ----- */
+    createBtn.addEventListener('click', function () { create(); });
     joinBtn.addEventListener('click', function () { join(codeInp.value); });
     codeInp.addEventListener('keydown', function (e) { if (e.key === 'Enter') join(codeInp.value); });
     nameInp.addEventListener('keydown', function (e) { if (e.key === 'Enter') create(); });
-    $('leaveRoom').addEventListener('click', function () { if (window.confirm('정말 방에서 나가시겠어요?')) leave('방에서 나왔어요.'); });
-    $('transferHost').addEventListener('click', function () {
-      var ids = Object.keys(players).filter(function (id) { return id !== 'HOST'; }); if (!ids.length) return;
-      var options = ids.map(function (id, i) { return (i + 1) + '. ' + players[id]; }).join('\n');
-      var choice = window.prompt('방장과 수호자 권한을 넘길 참가자 번호를 입력하세요.\n' + options, '1');
-      if (choice === null) return;
-      var target = ids[parseInt(choice, 10) - 1];
-      if (target) leave('', target); else window.alert('목록에 있는 번호를 입력해 주세요.');
+    playersEl.addEventListener('click', async function (e) {
+      var b = e.target.closest('button[data-xfer]');
+      if (!b || role !== 'host') return;
+      var id = b.dataset.xfer, nm = players[id];
+      if (!nm) return;
+      var ok = await ask('수호자를 넘길까요?', nm + '님에게 방장과 수호자 권한을 넘겨요. 나는 플레이어가 되고, 내 시트 영역이 다시 나타나요.', '넘기기', '취소');
+      if (ok) doTransfer(id);
+    });
+    $('leaveRoom').addEventListener('click', async function () {
+      var others = Object.keys(players).length > 1;
+      var ok = await ask('방에서 나갈까요?',
+        role === 'host'
+          ? (others ? '내가 나가면 다음에 입장한 사람에게 방장과 수호자 권한이 자동으로 넘어가요.' : '다른 사람이 없어서 방이 사라져요.')
+          : '방에서 나가도 시트는 이 기기에 남아 있어요. 같은 코드로 다시 들어올 수 있어요.',
+        '나가기', '머무르기');
+      if (ok) leave('방에서 나왔어요.');
     });
     $('copyCode').addEventListener('click', function () {
-      function ok(t) { toast.textContent = t; toast.classList.add('on'); setTimeout(function () { toast.classList.remove('on'); }, 1800); }
-      try { navigator.clipboard.writeText(code).then(function () { ok('코드를 복사했어요'); }, function () { ok('복사하지 못했어요'); }); }
-      catch (e) { ok('복사하지 못했어요'); }
+      try { navigator.clipboard.writeText(code).then(function () { flash('코드를 복사했어요'); }, function () { flash('복사하지 못했어요'); }); }
+      catch (e) { flash('복사하지 못했어요'); }
     });
-    try {
-      var resume = JSON.parse(localStorage.getItem('coc_room') || 'null');
-      if (resume && /^[A-Z0-9]{5}$/.test(resume.code) && resume.name) {
-        nameInp.value = cleanName(resume.name);
-        if (resume.role === 'host') create(resume.code);
-        else if (resume.role === 'client') { codeInp.value = resume.code; join(resume.code); }
-      }
-    } catch(e) {}
     if (!hasPeer) setMsg('멀티플레이 연결 도구를 불러오지 못했어요. 이 페이지가 일반 웹 주소에서 열렸는지, 인터넷에 연결돼 있는지 확인해 주세요.');
 
+    function restore() {
+      if (!hasPeer) return;
+      var s0 = null;
+      try { s0 = JSON.parse(sessionStorage.getItem('coc_room') || 'null'); } catch (e) {}
+      if (!s0 || typeof s0.code !== 'string' || s0.code.length !== 5 || Date.now() - (s0.t || 0) > 6 * 3600 * 1000) { clearSession(); return; }
+      var name = cleanName(s0.name);
+      nameInp.value = name;
+      if (s0.role === 'host') {
+        create({ code: s0.code, name: name, retryMs: s0.others ? 5000 : 12000, hint: Array.isArray(s0.order) ? s0.order.slice(0, 12) : [], fallbackJoin: s0.others > 0 });
+      } else join(s0.code, { name: name, retryMs: 30000 });
+    }
+
     return {
-      send: send, sendSheet: sendSheet,
+      send: send, sendSheet: sendSheet, restore: restore,
+      active: function () { return open || migrating; },
       feedMine: function (t) { if (open) feedLine('<b>' + esc(myName()) + '</b> ' + esc(t)); },
       feedOther: function (n, t) { if (open) feedLine('<b>' + esc(n) + '</b> ' + esc(t)); }
     };
   })();
 
-  restoreSavedSheet();
+  restoreSheet();
+  Room.restore();
 
 })();
 </script>
